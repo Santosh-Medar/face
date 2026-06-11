@@ -1,0 +1,11 @@
+# Project dump file
+django_project_dump_20260611_065052.txt
+dump_django_project.py
+
+# Editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
