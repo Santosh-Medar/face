@@ -25,7 +25,18 @@ SECRET_KEY = 'django-insecure-x7ws-=b+lk=0$$bt7!zkg5j2(1cz@@%iv^(lr=84u_9$qu27q%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+# At the top, where you set ALLOWED_HOSTS
+ALLOWED_HOSTS = ['*']  # or explicitly: ['face-1-oosd.onrender.com', 'localhost', '127.0.0.1']
+
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    'https://face-1-oosd.onrender.com',
+    # If you use a custom domain later, add it here
+]
+
+# Also for safety, set CSRF_COOKIE_SECURE = True in production
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
 
 
 # Application definition
