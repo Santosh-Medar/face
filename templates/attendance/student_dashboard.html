@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=yes" />
+  <title>FaceTrack | Student Dashboard</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* ========== COMPLETE STYLING FROM YOUR EXAMPLE (kept identical) ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #2463eb;
+      --primary-dark: #1345b0;
+      --primary-soft: #eef3fe;
+      --primary-glow: rgba(36, 99, 235, 0.25);
+      --accent: #3b82f6;
+      --card-white: #ffffff;
+      --text-main: #0a1e3c;
+      --text-secondary: #334155;
+      --text-muted: #5b6e8c;
+      --border-light: #eef2f8;
+      --shadow-sm: 0 12px 30px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.02);
+      --shadow-md: 0 20px 35px -12px rgba(0, 0, 0, 0.08);
+      --radius-xl: 2rem;
+      --radius-lg: 1.5rem;
+      --success: #10b981;
+      --success-bg: #d1fae5;
+    }
+
+    body {
+      font-family: 'Inter', 'Space Grotesk', system-ui, sans-serif;
+      background: linear-gradient(135deg, #fafcff 0%, #f3f7fe 100%);
+      color: var(--text-main);
+      overflow-x: hidden;
+      padding-bottom: 70px;
+    }
+
+    .bg-mesh {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background: radial-gradient(ellipse at 10% 20%, rgba(36, 99, 235, 0.03) 0%, transparent 55%),
+                  radial-gradient(ellipse at 90% 70%, rgba(59,130,246,0.05) 0%, transparent 60%),
+                  linear-gradient(115deg, #ffffff 0%, #f2f6fd 100%);
+    }
+
+    .glass-nav {
+      backdrop-filter: blur(18px);
+      background: rgba(255, 255, 255, 0.92);
+      border-bottom: 1px solid rgba(36, 99, 235, 0.12);
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      transition: all 0.25s;
+    }
+
+    .nav-scrolled {
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.75rem;
+    }
+
+    .nav-flex {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 74px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      background: linear-gradient(145deg, var(--primary), #4870f5);
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 15px -6px var(--primary-glow);
+    }
+
+    .brand-text h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-family: 'Space Grotesk', monospace;
+      background: linear-gradient(125deg, #13294b, var(--primary));
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .brand-text p {
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--primary);
+    }
+
+    .profile-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--card-white);
+      padding: 6px 14px 6px 10px;
+      border-radius: 60px;
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .logout-btn {
+      background: transparent;
+      border: 1.5px solid #ef4444;
+      color: #ef4444;
+      padding: 8px 18px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      margin-left: 12px;
+    }
+
+    .logout-btn:hover {
+      background: #ef4444;
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .mobile-user-name {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary-soft);
+      padding: 6px 14px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--primary);
+      cursor: pointer;
+    }
+
+    .avatar-small {
+      width: 32px;
+      height: 32px;
+      background: var(--primary-soft);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .dashboard-grid {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 2rem;
+      margin: 2rem auto 3rem;
+      max-width: 1000px;
+    }
+
+    .dashboard-grid > div:first-child {
+      flex: 1;
+      max-width: 600px;
+    }
+
+    /* Welcome Card */
+    .welcome-card {
+      background: var(--card-white);
+      border-radius: var(--radius-xl);
+      padding: 1.8rem 2rem;
+      margin-bottom: 1.8rem;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-light);
+      text-align: center;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .welcome-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      font-family: 'Space Grotesk';
+    }
+
+    .welcome-sub {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
+
+    /* Action Card */
+    .action-card {
+      background: var(--card-white);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-light);
+      margin-bottom: 1.8rem;
+      text-align: center;
+    }
+
+    .attendance-btn {
+      background: linear-gradient(105deg, var(--primary), #3e50f5);
+      border: none;
+      padding: 16px 32px;
+      border-radius: 60px;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(36, 99, 235, 0.35);
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-family: inherit;
+      margin-bottom: 1rem;
+    }
+
+    .attendance-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 22px rgba(36, 99, 235, 0.45);
+    }
+
+    .attendance-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #a0b9e0;
+    }
+
+    .location-status {
+      background: #f1f5f9;
+      border-radius: 60px;
+      padding: 8px 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-top: 0.5rem;
+    }
+
+    .location-status.loading { color: #2c6e9e; background: #e9f2fa; }
+    .location-status.success { color: #0e6e3b; background: #e0f6e8; }
+    .location-status.error { color: #bc3c2c; background: #ffe8e6; }
+
+    /* Info Panels */
+    .info-panel {
+      background: var(--card-white);
+      border-radius: var(--radius-xl);
+      padding: 1.6rem;
+      border: 1px solid var(--border-light);
+      margin-bottom: 1.5rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .panel-title {
+      font-weight: 800;
+      font-size: 1.1rem;
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .class-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .badge-present {
+      background: var(--success-bg);
+      color: var(--success);
+      font-weight: 700;
+      font-size: 0.7rem;
+      padding: 4px 12px;
+      border-radius: 60px;
+    }
+
+    .badge-pending {
+      background: #fff0e0;
+      color: #c26b2e;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--border-light);
+    }
+
+    .stat-row:last-child {
+      border-bottom: none;
+    }
+
+    .toast-msg {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary-dark);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 60px;
+      font-weight: 500;
+      z-index: 400;
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: 0.2s;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border-light);
+      display: none;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px 20px 14px;
+      z-index: 250;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .bottom-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: 0.2s;
+      padding: 6px 16px;
+      border-radius: 40px;
+    }
+
+    .bottom-nav-item i { font-size: 1.4rem; margin-bottom: 2px; }
+    .bottom-nav-item.active { color: var(--primary); background: var(--primary-soft); }
+    .bottom-nav-logout { color: #ef4444; }
+    .bottom-nav-logout.active { color: #ef4444; background: #fee2e2; }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border-light);
+      margin-top: 1rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 880px) {
+      .nav-links, .profile-badge { display: none; }
+      .mobile-user-name { display: flex; }
+      .container { padding: 0 1rem; }
+      .welcome-title { font-size: 1.4rem; }
+      .attendance-btn { width: 100%; justify-content: center; }
+      .bottom-nav { display: flex; }
+      body { padding-bottom: 70px; }
+      .class-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .toast-msg { bottom: 80px; white-space: normal; max-width: 85%; }
+    }
+
+    @media (min-width: 881px) { .bottom-nav { display: none; } }
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+
+<nav class="glass-nav" id="navbar">
+  <div class="container nav-flex">
+    <a href="#" class="brand-logo">
+      <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <div class="brand-text"><h1>FaceTrack</h1><p>student</p></div>
+    </a>
+    <div class="nav-links">
+      <a href="#" class="active" data-nav="home"><i class="fas fa-home"></i> Home</a>
+      <a href="#" data-nav="report"><i class="fas fa-chart-line"></i> Report</a>
+      <a href="#" data-nav="message"><i class="fas fa-comment"></i> Message</a>
+      <div class="profile-badge" id="profileBtn">
+        <div class="avatar-small"><i class="fas fa-user"></i></div>
+        <span>{{ request.user.username }}</span>
+      </div>
+      <button id="logoutBtnDesktop" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+    </div>
+    <div class="mobile-user-name" id="mobileUserName">
+      <i class="fas fa-user-circle"></i>
+      <span>{{ request.user.username }}</span>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="dashboard-grid">
+      <div>
+        <!-- Action Card with Location & Attendance -->
+        <div class="action-card">
+          <button id="attendanceBtn" class="attendance-btn" disabled>
+            <i class="fas fa-camera"></i> Mark Attendance →
+          </button>
+          <div id="locationStatus" class="location-status loading">
+            <i class="fas fa-spinner fa-pulse"></i> Verifying location...
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 12px;">
+            <i class="fas fa-map-marker-alt"></i> Location must be verified inside campus to enable attendance.
+          </p>
+        </div>
+
+        <!-- Today's Classes -->
+        <div class="info-panel">
+          <div class="panel-title"><i class="fas fa-calendar-alt"></i> Today's Schedule</div>
+          <div class="class-item"><span><strong>08:30 - 10:00</strong> · AI & Machine Learning</span><span class="badge-present"><i class="fas fa-check-circle"></i> Completed</span></div>
+          <div class="class-item"><span><strong>10:15 - 11:45</strong> · Computer Vision</span><span class="badge-present"><i class="fas fa-check-circle"></i> Completed</span></div>
+          <div class="class-item"><span><strong>12:00 - 13:30</strong> · Neural Networks</span><span class="badge-present"><i class="fas fa-check-circle"></i> Marked</span></div>
+          <div class="class-item"><span><strong>14:00 - 15:30</strong> · Ethics in AI</span><span id="pendingClassBadge" class="badge-present badge-pending"><i class="fas fa-hourglass-half"></i> Pending</span></div>
+        </div>
+        
+        <!-- Attendance Summary -->
+        <div class="info-panel">
+          <div class="panel-title"><i class="fas fa-chart-pie"></i> April Attendance</div>
+          <div class="stat-row"><span>Total Classes</span><strong id="totalClasses">24</strong></div>
+          <div class="stat-row"><span>Present</span><strong id="presentCount">22</strong></div>
+          <div class="stat-row"><span>Absent</span><strong>2</strong></div>
+          <div class="stat-row"><span>Attendance Rate</span><strong id="attRate" style="color: var(--primary); font-size: 1.1rem;">91.6%</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p><i class="far fa-copyright"></i> 2026 FaceTrack — AI-Powered Attendance System | Secure & Real-time</p>
+</footer>
+
+<div id="toastMsg" class="toast-msg"></div>
+
+<!-- BOTTOM NAVIGATION (Mobile) -->
+<div class="bottom-nav" id="bottomNav">
+  <a href="#" class="bottom-nav-item active" data-bottom="home"><i class="fas fa-home"></i><span>Home</span></a>
+  <a href="#" class="bottom-nav-item" data-bottom="message"><i class="fas fa-comment-dots"></i><span>Message</span></a>
+  <a href="#" class="bottom-nav-item" data-bottom="profile"><i class="fas fa-user-circle"></i><span>Profile</span></a>
+  <a href="#" class="bottom-nav-item bottom-nav-logout" id="mobileLogoutBtn"><i class="fas fa-sign-out-alt"></i><span>Exit</span></a>
+</div>
+
+<script>
+  // ========== DJANGO LOCATION VERIFICATION + ATTENDANCE REDIRECT ==========
+  const attendanceBtn = document.getElementById('attendanceBtn');
+  const locationStatusDiv = document.getElementById('locationStatus');
+  let isInsideCampus = false;
+
+  function showToast(msg, duration = 2500) {
+    const toast = document.getElementById('toastMsg');
+    toast.innerHTML = msg;
+    toast.style.opacity = '1';
+    setTimeout(() => { toast.style.opacity = '0'; }, duration);
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + "=")) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function checkLocation() {
+    if (!navigator.geolocation) {
+      locationStatusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Geolocation not supported.';
+      locationStatusDiv.className = 'location-status error';
+      attendanceBtn.disabled = true;
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(success, error);
+  }
+
+  function success(position) {
+    const studentLat = position.coords.latitude;
+    const studentLon = position.coords.longitude;
+
+    fetch("{% url 'verify_location' %}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken")
+      },
+      body: JSON.stringify({ latitude: studentLat, longitude: studentLon })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success' && data.is_inside) {
+        isInsideCampus = true;
+        locationStatusDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+        locationStatusDiv.className = 'location-status success';
+        attendanceBtn.disabled = false;
+        showToast("✅ Location verified! You can now mark attendance.", 3000);
+      } else {
+        isInsideCampus = false;
+        locationStatusDiv.innerHTML = '<i class="fas fa-times-circle"></i> ' + (data.message || "Outside campus area.");
+        locationStatusDiv.className = 'location-status error';
+        attendanceBtn.disabled = true;
+        showToast("❌ You are not inside the campus. Attendance not allowed.", 4000);
+      }
+    })
+    .catch(err => {
+      locationStatusDiv.innerHTML = '<i class="fas fa-bug"></i> Error verifying location.';
+      locationStatusDiv.className = 'location-status error';
+      attendanceBtn.disabled = true;
+      console.error(err);
+    });
+  }
+
+  function error() {
+    locationStatusDiv.innerHTML = '<i class="fas fa-location-arrow"></i> Unable to get location. Please allow permissions.';
+    locationStatusDiv.className = 'location-status error';
+    attendanceBtn.disabled = true;
+  }
+
+  // Attendance button redirects to face recognition page
+  function takeAttendance() {
+    if (!isInsideCampus) {
+      showToast("⚠️ Location verification required first.", 2000);
+      return;
+    }
+    showToast("📸 Redirecting to face recognition...", 1500);
+    setTimeout(() => {
+      window.location.href = "{% url 'face_recognition_page' %}?verified=1";
+    }, 800);
+  }
+
+  attendanceBtn.addEventListener('click', takeAttendance);
+  window.addEventListener('DOMContentLoaded', checkLocation);
+
+  // ========== LOGOUT (Django URL) ==========
+  function handleLogout() {
+    showToast("👋 Logging out...", 1000);
+    setTimeout(() => {
+      window.location.href = "{% url 'logout' %}";
+    }, 500);
+  }
+  document.getElementById('logoutBtnDesktop')?.addEventListener('click', handleLogout);
+  document.getElementById('mobileLogoutBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    handleLogout();
+  });
+
+  // ========== NAVIGATION & UI POLISH (preserved from example) ==========
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 15) navbar.classList.add('nav-scrolled');
+    else navbar.classList.remove('nav-scrolled');
+  });
+
+  function setActiveNav(activeId) {
+    document.querySelectorAll('.nav-links a').forEach(link => link.classList.remove('active'));
+    document.querySelectorAll('.bottom-nav-item').forEach(item => item.classList.remove('active'));
+    if (activeId === 'home') document.querySelector('.nav-links a[data-nav="home"]')?.classList.add('active');
+    else if (activeId === 'report') document.querySelector('.nav-links a[data-nav="report"]')?.classList.add('active');
+    else if (activeId === 'message') document.querySelector('.nav-links a[data-nav="message"]')?.classList.add('active');
+    document.querySelector(`.bottom-nav-item[data-bottom="${activeId}"]`)?.classList.add('active');
+  }
+
+  function handleNavigation(screen) {
+    if (screen === 'home') showToast("🏠 Dashboard", 1200);
+    else if (screen === 'message') showToast("💬 Messages (coming soon)", 1500);
+    else if (screen === 'profile') showToast("👤 Profile details", 1500);
+    else if (screen === 'report') showToast("📊 Reports (coming soon)", 1500);
+    setActiveNav(screen);
+  }
+
+  document.querySelectorAll('.nav-links a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const navType = link.getAttribute('data-nav');
+      if (navType) handleNavigation(navType);
+    });
+  });
+  document.querySelectorAll('.bottom-nav-item:not(#mobileLogoutBtn)').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const type = item.getAttribute('data-bottom');
+      if (type) handleNavigation(type);
+    });
+  });
+  document.getElementById('profileBtn')?.addEventListener('click', () => handleNavigation('profile'));
+  document.getElementById('mobileUserName')?.addEventListener('click', () => handleNavigation('profile'));
+
+  // Update pending badge & stats when attendance is marked (optional)
+  // This will be handled by the face recognition page; here we just simulate a visual update if redirected back.
+  // (Kept from original example for consistency)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('marked') === '1') {
+    const pendingBadge = document.getElementById('pendingClassBadge');
+    if (pendingBadge && pendingBadge.innerText.includes('Pending')) {
+      pendingBadge.innerHTML = '<i class="fas fa-check-circle"></i> Marked ✓';
+      pendingBadge.classList.remove('badge-pending');
+      pendingBadge.style.background = '#d1fae5';
+    }
+    let presentElem = document.getElementById('presentCount');
+    let totalElem = document.getElementById('totalClasses');
+    let rateElem = document.getElementById('attRate');
+    if (presentElem && totalElem && rateElem) {
+      let present = parseInt(presentElem.innerText);
+      let total = parseInt(totalElem.innerText);
+      if (!isNaN(present) && !isNaN(total) && present < total) {
+        let newPresent = present + 1;
+        presentElem.innerText = newPresent;
+        rateElem.innerText = Math.round((newPresent / total) * 100) + '%';
+      }
+    }
+    showToast("✅ Attendance recorded successfully!", 3000);
+  }
+</script>
+</body>
+</html>

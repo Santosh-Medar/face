@@ -1,0 +1,2659 @@
+Django Project Dump
+Generated: 2026-06-11 06:50:52
+Project root: /home/santosh/Videos/new_pro/geoface_attendance
+
+
+================================================================================
+FILE: manage.py
+================================================================================
+
+#!/usr/bin/env python
+"""Django's command-line utility for administrative tasks."""
+import os
+import sys
+
+
+def main():
+    """Run administrative tasks."""
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'geoface_attendance.settings')
+    try:
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+    execute_from_command_line(sys.argv)
+
+
+if __name__ == '__main__':
+    main()
+
+
+================================================================================
+FILE: populate_students.py
+================================================================================
+
+# populate_students.py
+import os
+import django
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'geoface_attendance.settings')  # change to your project name
+django.setup()
+
+from django.contrib.auth.models import User
+from accounts.models import StudentProfile  # adjust import path
+
+# List of names extracted from the image filenames
+names = [
+    "Adani",
+    "Ambani",
+    "Bhaskar",
+    "Elon Musk",
+    "Mark Zuckerberg",
+    "Sreekanth",
+    "Vidya",
+    "Virat Kohli"
+]
+
+def create_students():
+    base_roll = "u16sd23s"   # prefix
+    start_num = 1
+    default_password = "student123"
+    default_course = "BCA"      # change as needed
+    default_semester = "6"      # change as needed
+
+    created_count = 0
+    for idx, name in enumerate(names, start=start_num):
+        roll_number = f"{base_roll}{idx:04d}"   # e.g., u16sd23s0001, u16sd23s0002
+        username = roll_number                   # use roll number as username (or name.lower().replace(' ', '_'))
+        
+        # Check if user already exists
+        if User.objects.filter(username=username).exists():
+            print(f"User {username} already exists, skipping...")
+            continue
+        
+        # Create User
+        user = User.objects.create_user(
+            username=username,
+            password=default_password,
+            first_name=name.split()[0],
+            last_name=" ".join(name.split()[1:]) if len(name.split()) > 1 else ""
+        )
+        
+        # Create StudentProfile
+        student_profile = StudentProfile.objects.create(
+            user=user,
+            roll_no=roll_number,
+            course=default_course,
+            semester=default_semester,
+            phone="",          # optional
+        )
+        created_count += 1
+        print(f"Created: {name} -> {roll_number} (username: {username})")
+
+    print(f"\n✅ Successfully created {created_count} students.")
+    print(f"Default password for all: {default_password}")
+
+if __name__ == "__main__":
+    create_students()
+
+================================================================================
+FILE: django_project_dump_20260611_065052.txt
+================================================================================
+
+
+
+================================================================================
+FILE: accounts/admin.py
+================================================================================
+
+from django.contrib import admin
+from .models import StudentProfile
+
+
+@admin.register(StudentProfile)
+class StudentProfileAdmin(admin.ModelAdmin):
+    list_display = ('roll_no', 'user', 'course', 'semester', 'phone')
+    search_fields = ('roll_no', 'user__username', 'course')
+
+================================================================================
+FILE: accounts/urls.py
+================================================================================
+
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.login_view, name='login'),
+    path('logout/', views.logout_view, name='logout'),
+]
+
+================================================================================
+FILE: accounts/apps.py
+================================================================================
+
+from django.apps import AppConfig
+
+
+class AccountsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'accounts'
+
+
+================================================================================
+FILE: accounts/__init__.py
+================================================================================
+
+
+
+================================================================================
+FILE: accounts/backends.py
+================================================================================
+
+from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.models import User
+from .models import StudentProfile
+
+class DualAuthenticationBackend(ModelBackend):
+    """
+    Authenticate using:
+    - roll_no (for students) OR
+    - username (for admins / staff)
+    """
+
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        # Try to interpret the input as a roll number
+        try:
+            student_profile = StudentProfile.objects.get(roll_no=username)
+            user = student_profile.user
+            if user.check_password(password) and self.user_can_authenticate(user):
+                return user
+        except StudentProfile.DoesNotExist:
+            # Not a roll number – fall back to default username authentication
+            return super().authenticate(request, username=username, password=password, **kwargs)
+        return None
+
+    def get_user(self, user_id):
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+
+================================================================================
+FILE: accounts/tests.py
+================================================================================
+
+from django.test import TestCase
+
+# Create your tests here.
+
+
+================================================================================
+FILE: accounts/views.py
+================================================================================
+
+from django.shortcuts import render, redirect
+from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
+
+def login_view(request):
+    if request.user.is_authenticated:
+        if request.user.is_superuser:
+            return redirect('admin_dashboard')
+        else:
+            return redirect('student_dashboard')
+
+    if request.method == 'POST':
+        login_input = request.POST.get('login')    # can be roll_no OR username
+        password = request.POST.get('password')
+        print(f"Attempting login with: {login_input} / {password}")  # Debugging line
+        user = authenticate(request, username=login_input, password=password)
+
+        if user is not None:
+            login(request, user)
+            if user.is_superuser:
+                return redirect('admin_dashboard')
+            else:
+                return redirect('student_dashboard')
+        else:
+            messages.error(request, 'Invalid roll number/username or password')
+
+    return render(request, 'accounts/login.html')
+
+def logout_view(request):
+    logout(request)
+    return redirect('login')
+
+================================================================================
+FILE: accounts/models.py
+================================================================================
+
+from django.db import models
+from django.contrib.auth.models import User
+
+class StudentProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    roll_no = models.CharField(max_length=20, unique=True)
+    course = models.CharField(max_length=50)
+    semester = models.CharField(max_length=20)
+    phone = models.CharField(max_length=15, blank=True, null=True)
+
+    # Face recognition data will be stored later
+    face_image = models.ImageField(upload_to='student_faces/', blank=True, null=True)
+    face_encoding = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.roll_no} - {self.user.username}"
+    
+
+================================================================================
+FILE: accounts/management/commands/store_face_encodings.py
+================================================================================
+
+import json
+import logging
+from django.core.management.base import BaseCommand
+from django.core.files.storage import default_storage
+from django.conf import settings
+from accounts.models import StudentProfile  
+
+try:
+    import face_recognition
+except ImportError:
+    raise ImportError("face_recognition library is not installed. Run: pip install face_recognition")
+
+logger = logging.getLogger(__name__)
+
+class Command(BaseCommand):
+    help = 'Generate and store face encodings for StudentProfile instances that have a face_image.'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Recompute encoding even if face_encoding already exists.',
+        )
+        parser.add_argument(
+            '--roll-no',
+            type=str,
+            help='Process only a specific roll number.',
+        )
+
+    def handle(self, *args, **options):
+        force = options['force']
+        roll_no = options.get('roll_no')
+
+        queryset = StudentProfile.objects.exclude(face_image='')
+        if roll_no:
+            queryset = queryset.filter(roll_no=roll_no)
+
+        if not queryset.exists():
+            self.stdout.write(self.style.WARNING("No StudentProfile with face_image found."))
+            return
+
+        updated_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        for profile in queryset:
+            if profile.face_encoding and not force:
+                self.stdout.write(f"Skipping {profile.roll_no} (encoding already exists)")
+                skipped_count += 1
+                continue
+
+            # Get absolute path of the image
+            image_path = profile.face_image.path
+            if not default_storage.exists(profile.face_image.name):
+                self.stdout.write(self.style.ERROR(f"Image file missing for {profile.roll_no}: {image_path}"))
+                error_count += 1
+                continue
+
+            try:
+                # Load image and compute face encodings
+                image = face_recognition.load_image_file(image_path)
+                encodings = face_recognition.face_encodings(image)
+
+                if not encodings:
+                    self.stdout.write(self.style.WARNING(f"No face detected in image for {profile.roll_no}"))
+                    error_count += 1
+                    continue
+
+                # Use the first detected face encoding
+                encoding_list = encodings[0].tolist()  # numpy array -> list of floats
+                encoding_json = json.dumps(encoding_list)
+
+                # Save to database
+                profile.face_encoding = encoding_json
+                profile.save(update_fields=['face_encoding'])
+                updated_count += 1
+                self.stdout.write(self.style.SUCCESS(f"Stored encoding for {profile.roll_no}"))
+
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error processing {profile.roll_no}: {str(e)}"))
+                error_count += 1
+
+        self.stdout.write(self.style.SUCCESS(
+            f"Done. Updated: {updated_count}, Skipped: {skipped_count}, Errors: {error_count}"
+        ))
+
+================================================================================
+FILE: geoface_attendance/wsgi.py
+================================================================================
+
+"""
+WSGI config for geoface_attendance project.
+
+It exposes the WSGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
+"""
+
+import os
+
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'geoface_attendance.settings')
+
+application = get_wsgi_application()
+
+
+================================================================================
+FILE: geoface_attendance/urls.py
+================================================================================
+
+"""
+URL configuration for geoface_attendance project.
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/5.2/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+from django.conf import settings
+from django.contrib import admin
+from django.urls import path, include
+from django.conf.urls.static import static
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', include('accounts.urls')),
+    path('attendance/', include('attendance.urls')),
+]
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+================================================================================
+FILE: geoface_attendance/__init__.py
+================================================================================
+
+
+
+================================================================================
+FILE: geoface_attendance/asgi.py
+================================================================================
+
+import os
+from django.core.asgi import get_asgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'geoface_attendance.settings')
+
+django_asgi_app = get_asgi_application()
+
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+from attendance import routing
+
+application = ProtocolTypeRouter({
+    'http': django_asgi_app,
+    'websocket': AuthMiddlewareStack(
+        URLRouter(routing.websocket_urlpatterns)
+    ),
+})
+
+================================================================================
+FILE: geoface_attendance/settings.py
+================================================================================
+
+"""
+Django settings for geoface_attendance project.
+
+Generated by 'django-admin startproject' using Django 5.2.7.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.2/topics/settings/
+
+For the full list of settings and their values, see
+https://docs.djangoproject.com/en/5.2/ref/settings/
+"""
+
+from pathlib import Path
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = 'django-insecure-x7ws-=b+lk=0$$bt7!zkg5j2(1cz@@%iv^(lr=84u_9$qu27q%'
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
+
+ALLOWED_HOSTS = ['*']
+
+
+# Application definition
+
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'channels',
+    'accounts',
+    'attendance',
+]
+
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+ROOT_URLCONF = 'geoface_attendance.urls'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'geoface_attendance.wsgi.application'
+ASGI_APPLICATION = 'geoface_attendance.asgi.application'
+
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
+
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.DualAuthenticationBackend',   # custom first
+    'django.contrib.auth.backends.ModelBackend',      # fallback (optional)
+]
+
+# Password validation
+# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
+
+
+# Internationalization
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
+
+LANGUAGE_CODE = 'en-us'
+
+TIME_ZONE = 'Asia/Kolkata'
+
+USE_I18N = True
+
+USE_TZ = True
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+STATIC_URL = 'static/'
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'student_dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+================================================================================
+FILE: templates/admin_dashboard.html
+================================================================================
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <title>FaceTrack | Admin Dashboard - Course Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+            --primary: #2463eb;
+            --primary-dark: #1345b0;
+            --primary-soft: #eef3fe;
+            --card-white: #ffffff;
+            --text-main: #0a1e3c;
+            --text-secondary: #334155;
+            --text-muted: #5b6e8c;
+            --border-light: #eef2f8;
+            --shadow-sm: 0 12px 30px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.02);
+            --shadow-md: 0 20px 35px -12px rgba(0, 0, 0, 0.08);
+            --radius-xl: 2rem;
+            --radius-lg: 1.5rem;
+            --success: #10b981;
+            --absent: #ef4444;
+        }
+        body { font-family: 'Inter', 'Space Grotesk', system-ui, sans-serif; background: linear-gradient(135deg, #fafcff 0%, #f3f7fe 100%); color: var(--text-main); overflow-x: hidden; min-height: 100vh; padding-bottom: 70px; }
+        .bg-mesh { position: fixed; inset:0; z-index:-2; background: radial-gradient(ellipse at 10% 20%, rgba(36,99,235,0.03) 0%, transparent 55%), radial-gradient(ellipse at 90% 70%, rgba(59,130,246,0.05) 0%, transparent 60%), linear-gradient(115deg, #ffffff 0%, #f2f6fd 100%); }
+        .glass-nav { backdrop-filter: blur(18px); background: rgba(255,255,255,0.92); border-bottom:1px solid rgba(36,99,235,0.12); position:sticky; top:0; z-index:200; transition:all 0.25s; }
+        .container { max-width:1280px; margin:0 auto; padding:0 1.75rem; }
+        .nav-flex { display:flex; align-items:center; justify-content:space-between; height:74px; flex-wrap:wrap; gap:1rem; }
+        .brand-logo { display:flex; align-items:center; gap:12px; text-decoration:none; cursor:pointer; }
+        .logo-icon { background:linear-gradient(145deg, var(--primary), #4870f5); width:42px; height:42px; border-radius:14px; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 15px -6px rgba(36,99,235,0.25); }
+        .brand-text h1 { font-size:1.4rem; font-weight:700; font-family:'Space Grotesk',monospace; background:linear-gradient(125deg,#13294b,var(--primary)); background-clip:text; -webkit-background-clip:text; color:transparent; }
+        .brand-text p { font-size:0.65rem; font-weight:500; color:var(--text-muted); }
+        .nav-right { display:flex; align-items:center; gap:1rem; }
+        .admin-badge { background:var(--primary-soft); padding:8px 20px; border-radius:40px; font-weight:600; font-size:0.85rem; color:var(--primary); }
+        .logout-btn { background:transparent; border:1.5px solid #ef4444; color:#ef4444; padding:8px 18px; border-radius:40px; font-weight:600; font-size:0.85rem; cursor:pointer; transition:all 0.2s ease; display:flex; align-items:center; gap:8px; font-family:inherit; }
+        .logout-btn:hover { background:#ef4444; color:white; transform:translateY(-2px); box-shadow:0 4px 12px rgba(239,68,68,0.3); }
+        .page-title { margin:2rem 0 1rem; }
+        .page-title h1 { font-size:1.8rem; font-weight:700; }
+        .page-title p { color:var(--text-muted); margin-top:4px; }
+        .dept-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:1.5rem; margin:2rem 0; }
+        .dept-card { background:var(--card-white); border-radius:var(--radius-lg); padding:1.5rem; border:1px solid var(--border-light); cursor:pointer; transition:all 0.25s; text-align:center; box-shadow:var(--shadow-sm); }
+        .dept-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-md); border-color:var(--primary); }
+        .dept-icon { font-size:2.5rem; color:var(--primary); margin-bottom:0.75rem; }
+        .dept-name { font-size:1.2rem; font-weight:700; margin-bottom:0.5rem; }
+        .dept-fullname { font-size:0.8rem; color:var(--text-muted); margin-bottom:0.75rem; }
+        .dept-count { font-size:1.8rem; font-weight:800; color:var(--primary); }
+        .dept-label { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+        .students-page { background:var(--card-white); border-radius:var(--radius-xl); padding:1.8rem; margin:1.5rem 0 2rem; box-shadow:var(--shadow-sm); border:1px solid var(--border-light); }
+        .back-btn { display:inline-flex; align-items:center; gap:8px; background:var(--primary-soft); border:none; padding:10px 20px; border-radius:40px; font-weight:600; color:var(--primary); cursor:pointer; transition:0.2s; margin-bottom:1.5rem; }
+        .back-btn:hover { background:var(--primary); color:white; }
+        .dept-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:2px solid var(--border-light); }
+        .dept-header h2 { font-size:1.5rem; font-weight:700; display:flex; align-items:center; gap:10px; }
+        .stats-badge { background:var(--primary-soft); padding:8px 16px; border-radius:40px; font-size:0.8rem; font-weight:600; }
+        .table-wrapper { overflow-x:auto; border-radius:1rem; -webkit-overflow-scrolling: touch; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:500px; }
+        th, td { padding:14px 12px; text-align:left; border-bottom:1px solid var(--border-light); }
+        th { background:#f8fafc; font-weight:700; color:var(--text-secondary); }
+        .status-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:40px; font-size:0.75rem; font-weight:700; white-space:nowrap; }
+        .status-present { background:#d1fae5; color:var(--success); }
+        .status-absent { background:#fee2e2; color:var(--absent); }
+        .empty-state { text-align:center; padding:3rem; color:var(--text-muted); }
+        footer { text-align:center; padding:2rem; color:var(--text-muted); font-size:0.8rem; border-top:1px solid var(--border-light); margin-top:2rem; }
+        .toast-msg { position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:var(--primary-dark); color:white; padding:12px 24px; border-radius:60px; font-weight:500; z-index:1000; font-size:0.85rem; opacity:0; transition:0.2s; pointer-events:none; white-space:nowrap; box-shadow:0 4px 15px rgba(0,0,0,0.2); }
+        .hidden { display:none; }
+        
+        /* ========== BOTTOM NAVIGATION (Mobile Only) ========== */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-light);
+            display: none;
+            justify-content: space-around;
+            align-items: center;
+            padding: 8px 20px 14px;
+            z-index: 250;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+        }
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: 0.2s;
+            padding: 6px 16px;
+            border-radius: 40px;
+            cursor: pointer;
+        }
+        .bottom-nav-item i { font-size: 1.4rem; margin-bottom: 2px; }
+        .bottom-nav-item.active { color: var(--primary); background: var(--primary-soft); }
+        .bottom-nav-logout { color: #ef4444; }
+        .bottom-nav-logout.active { color: #ef4444; background: #fee2e2; }
+        
+        /* ========== RESPONSIVE: HIDE DESKTOP ELEMENTS ON MOBILE ========== */
+        @media (max-width: 880px) {
+            .container { padding: 0 1rem; }
+            .admin-badge { display: none; }
+            .nav-flex { height: auto; padding: 12px 0; }
+            .brand-text h1 { font-size: 1.2rem; }
+            .logo-icon { width: 36px; height: 36px; }
+            .page-title h1 { font-size: 1.4rem; }
+            .page-title p { font-size: 0.8rem; }
+            .dept-grid { gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); }
+            .dept-card { padding: 1rem; }
+            .dept-icon { font-size: 1.8rem; }
+            .dept-name { font-size: 1rem; }
+            .dept-fullname { font-size: 0.7rem; }
+            .dept-count { font-size: 1.4rem; }
+            .students-page { padding: 1.2rem; }
+            .dept-header { flex-direction: column; align-items: flex-start; }
+            .dept-header h2 { font-size: 1.2rem; }
+            .stats-badge { font-size: 0.7rem; padding: 6px 12px; }
+            th, td { padding: 10px 8px; font-size: 0.8rem; }
+            .status-badge { padding: 3px 10px; font-size: 0.7rem; }
+            .toast-msg { bottom: 80px; white-space: normal; max-width: 85%; text-align: center; }
+            .bottom-nav { display: flex; }
+            body { padding-bottom: 70px; }
+            .back-btn { padding: 8px 16px; font-size: 0.8rem; }
+        }
+        @media (max-width: 580px) {
+            .dept-card { padding: 0.8rem; }
+            .dept-icon { font-size: 1.5rem; }
+            .dept-name { font-size: 0.9rem; }
+            .dept-fullname { font-size: 0.65rem; }
+            .dept-count { font-size: 1.2rem; }
+        }
+        @media (max-width: 480px) {
+            th, td { font-size: 0.7rem; padding: 8px 6px; }
+            .status-badge { padding: 2px 8px; font-size: 0.65rem; }
+            .back-btn { padding: 6px 14px; font-size: 0.75rem; }
+        }
+        button { cursor: pointer; font-family: inherit; }
+    </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+
+<nav class="glass-nav">
+    <div class="container nav-flex">
+        <div class="brand-logo" id="homeLogoBtn">
+            <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+            <div class="brand-text"><h1>FaceTrack</h1><p>admin console</p></div>
+        </div>
+        <div class="nav-right">
+            <div class="admin-badge"><i class="fas fa-user-shield"></i> Admin Portal</div>
+            <button id="logoutBtn" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main>
+    <div class="container">
+        <!-- Courses View -->
+        <div id="deptView">
+            <div class="page-title">
+                <h1>Course Overview</h1>
+                <p>Click on any course card to view student attendance details</p>
+            </div>
+            <div class="dept-grid" id="deptGrid">
+                <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading courses...</div>
+            </div>
+        </div>
+
+        <!-- Students Table View -->
+        <div id="studentsView" class="hidden">
+            <div class="students-page">
+                <button id="backToDeptBtn" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Courses</button>
+                <div class="dept-header" id="deptHeader">
+                    <h2><i class="fas fa-users"></i> <span id="selectedDeptName">Course Name</span></h2>
+                    <div class="stats-badge" id="deptStats">Loading...</div>
+                </div>
+                <div class="table-wrapper" id="tableWrapper">
+                    <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading students...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <p><i class="far fa-copyright"></i> 2026 FaceTrack — AI-Powered Attendance System | Admin Dashboard</p>
+</footer>
+<div id="toastMsg" class="toast-msg"></div>
+
+<!-- BOTTOM NAVIGATION (Mobile) -->
+<div class="bottom-nav" id="bottomNav">
+    <div class="bottom-nav-item active" data-bottom="home">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+    </div>
+    <div class="bottom-nav-item" data-bottom="courses">
+        <i class="fas fa-graduation-cap"></i>
+        <span>Courses</span>
+    </div>
+    <div class="bottom-nav-item" data-bottom="stats">
+        <i class="fas fa-chart-line"></i>
+        <span>Stats</span>
+    </div>
+    <div class="bottom-nav-item bottom-nav-logout" id="mobileLogoutBtn">
+        <i class="fas fa-sign-out-alt"></i>
+        <span>Exit</span>
+    </div>
+</div>
+
+<script>
+    // CSRF helper (though not strictly needed for GET)
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    let currentView = 'dept';
+    const deptView = document.getElementById('deptView');
+    const studentsView = document.getElementById('studentsView');
+    const deptGrid = document.getElementById('deptGrid');
+    const backBtn = document.getElementById('backToDeptBtn');
+    const selectedDeptNameSpan = document.getElementById('selectedDeptName');
+    const deptStatsSpan = document.getElementById('deptStats');
+    const tableWrapper = document.getElementById('tableWrapper');
+    const homeLogoBtn = document.getElementById('homeLogoBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+    const toastMsg = document.getElementById('toastMsg');
+
+    function showToast(message, duration = 2500) {
+        toastMsg.innerHTML = message;
+        toastMsg.style.opacity = '1';
+        setTimeout(() => { toastMsg.style.opacity = '0'; }, duration);
+    }
+
+    // Load courses from API
+    async function loadCourses() {
+        try {
+            const response = await fetch("{% url 'api_courses' %}", {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) throw new Error('Failed to load courses');
+            const data = await response.json();
+            renderCourseCards(data.departments);
+        } catch (error) {
+            console.error(error);
+            deptGrid.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i> Error loading courses. Please refresh.</div>`;
+        }
+    }
+
+    function renderCourseCards(courses) {
+        if (!courses || courses.length === 0) {
+            deptGrid.innerHTML = `<div class="empty-state"><i class="fas fa-building"></i> No courses found.</div>`;
+            return;
+        }
+        deptGrid.innerHTML = '';
+        courses.forEach(course => {
+            const card = document.createElement('div');
+            card.className = 'dept-card';
+            card.innerHTML = `
+                <div class="dept-icon"><i class="${course.icon}"></i></div>
+                <div class="dept-name">${course.short_name}</div>
+                <div class="dept-fullname">${course.full_name}</div>
+                <div class="dept-count">${course.student_count}</div>
+                <div class="dept-label">Total Students</div>
+            `;
+            card.addEventListener('click', () => {
+                showStudentsView(course.short_name);
+            });
+            deptGrid.appendChild(card);
+        });
+    }
+
+    // Load students of a specific course
+    async function showStudentsView(courseName) {
+        currentView = 'students';
+        // Show loading state
+        selectedDeptNameSpan.innerHTML = `<i class="fas fa-spinner fa-pulse"></i> Loading...`;
+        deptStatsSpan.innerHTML = 'Loading stats...';
+        tableWrapper.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading students...</div>`;
+        deptView.classList.add('hidden');
+        studentsView.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        try {
+            const response = await fetch(`{% url 'api_course_students' 'PLACEHOLDER' %}`.replace('PLACEHOLDER', courseName), {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) throw new Error('Failed to load student data');
+            const data = await response.json();
+
+            // Update header
+            selectedDeptNameSpan.innerHTML = `<i class="${data.department.icon}"></i> ${data.department.full_name} (${data.department.short_name})`;
+            deptStatsSpan.innerHTML = `<i class="fas fa-calendar-check"></i> Present: ${data.present_count} | <i class="fas fa-calendar-times"></i> Absent: ${data.absent_count} | 📚 Total: ${data.total_students}`;
+
+            if (!data.students || data.students.length === 0) {
+                tableWrapper.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i><p>No students found in this course</p></div>`;
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr><th>Roll No.</th><th>Student Name</th><th>Today's Status</th></tr>
+                    </thead>
+                    <tbody>
+            `;
+            data.students.forEach(student => {
+                const statusClass = student.status === 'Present' ? 'status-present' : 'status-absent';
+                const statusIcon = student.status === 'Present' ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-times-circle"></i>';
+                tableHTML += `
+                    <tr>
+                        <td><strong>${student.id}</strong></td>
+                        <td>${student.name}</td>
+                        <td><span class="status-badge ${statusClass}">${statusIcon} ${student.status}</span></td>
+                    </tr>
+                `;
+            });
+            tableHTML += `</tbody>
+                </table>`;
+            tableWrapper.innerHTML = tableHTML;
+        } catch (error) {
+            console.error(error);
+            tableWrapper.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i> Error loading student data.</div>`;
+            deptStatsSpan.innerHTML = 'Error loading stats';
+        }
+    }
+
+    function showCoursesView() {
+        currentView = 'dept';
+        deptView.classList.remove('hidden');
+        studentsView.classList.add('hidden');
+        loadCourses(); // refresh to show updated student counts
+    }
+
+    // Logout redirect (uses Django logout URL)
+    function handleLogout() {
+        showToast("👋 Logging out...", 1500);
+        setTimeout(() => {
+            window.location.href = "{% url 'logout' %}";
+        }, 800);
+    }
+
+    // ========== BOTTOM NAVIGATION ACTIVE STATE ==========
+    function setActiveNav(activeId) {
+        document.querySelectorAll('.bottom-nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        const target = document.querySelector(`.bottom-nav-item[data-bottom="${activeId}"]`);
+        if (target) target.classList.add('active');
+    }
+
+    function handleNavClick(screen) {
+        if (screen === 'home') {
+            showCoursesView();
+            setActiveNav('home');
+        } else if (screen === 'courses') {
+            showCoursesView();
+            setActiveNav('courses');
+        } else if (screen === 'stats') {
+            showToast("📊 Overall statistics coming soon", 1500);
+            setActiveNav('stats');
+        }
+    }
+
+    // Event listeners
+    backBtn.addEventListener('click', showCoursesView);
+    homeLogoBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showCoursesView();
+    });
+    logoutBtn.addEventListener('click', handleLogout);
+    if (mobileLogoutBtn) mobileLogoutBtn.addEventListener('click', handleLogout);
+
+    // Bottom nav listeners
+    document.querySelectorAll('.bottom-nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const type = item.getAttribute('data-bottom');
+            if (type && type !== 'logout') {
+                handleNavClick(type);
+            }
+        });
+    });
+
+    // Initial load
+    loadCourses();
+</script>
+</body>
+</html>
+
+================================================================================
+FILE: templates/accounts/login.html
+================================================================================
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=yes" />
+  <title>FaceTrack | AI Smart Attendance System</title>
+  <!-- Fonts & same styling as original -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Paste ALL original CSS from the given HTML here (no changes) */
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root { --primary:#2463eb; --primary-dark:#1345b0; --primary-soft:#eef3fe; --primary-glow:rgba(36,99,235,0.25); --accent:#3b82f6; --deep-bg:#fbfdff; --card-white:#ffffff; --text-main:#0a1e3c; --text-secondary:#334155; --text-muted:#5b6e8c; --border-light:#eef2f8; --shadow-sm:0 12px 30px rgba(0,0,0,0.05),0 2px 4px rgba(0,0,0,0.02); --shadow-hover:0 24px 48px -12px rgba(0,0,0,0.12); --radius-xl:2rem; --radius-lg:1.5rem; }
+    body { font-family:'Inter','Space Grotesk',system-ui,sans-serif; background:linear-gradient(135deg,#fafcff 0%,#f3f7fe 100%); color:var(--text-main); overflow-x:hidden; scroll-behavior:smooth; }
+    .bg-mesh { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-2; background:radial-gradient(ellipse at 10% 20%,rgba(36,99,235,0.03) 0%,transparent 55%),radial-gradient(ellipse at 90% 70%,rgba(59,130,246,0.05) 0%,transparent 60%),linear-gradient(115deg,#ffffff 0%,#f2f6fd 100%); }
+    .soft-glow { position:fixed; width:55vw; height:55vw; background:radial-gradient(circle,rgba(36,99,235,0.07) 0%,rgba(36,99,235,0) 75%); border-radius:50%; filter:blur(70px); pointer-events:none; z-index:-1; animation:drift 22s infinite alternate; }
+    @keyframes drift { 0% { transform:translate(0%,0%) scale(1); opacity:0.6; } 100% { transform:translate(4%,5%) scale(1.2); opacity:0.9; } }
+    .glass-nav { backdrop-filter:blur(18px); background:rgba(255,255,255,0.82); border-bottom:1px solid rgba(36,99,235,0.12); position:sticky; top:0; z-index:200; transition:all 0.25s; }
+    .nav-scrolled { background:rgba(255,255,255,0.96); box-shadow:0 4px 20px rgba(0,0,0,0.02); }
+    .container { max-width:1280px; margin:0 auto; padding:0 1.75rem; }
+    .nav-flex { display:flex; align-items:center; justify-content:space-between; height:74px; }
+    .brand-logo { display:flex; align-items:center; gap:12px; text-decoration:none; }
+    .logo-icon { background:linear-gradient(145deg,var(--primary),#4870f5); width:42px; height:42px; border-radius:14px; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 15px -6px var(--primary-glow); }
+    .brand-text h1 { font-size:1.4rem; font-weight:700; font-family:'Space Grotesk',monospace; letter-spacing:-0.3px; background:linear-gradient(125deg,#13294b,var(--primary)); background-clip:text; -webkit-background-clip:text; color:transparent; }
+    .brand-text p { font-size:0.65rem; font-weight:500; color:var(--text-muted); }
+    .nav-links { display:flex; gap:2.5rem; }
+    .nav-links a { text-decoration:none; font-weight:600; font-size:0.9rem; color:var(--text-secondary); transition:0.2s; }
+    .nav-links a:hover { color:var(--primary); }
+    .btn-primary { background:var(--primary); border:none; padding:10px 26px; border-radius:44px; font-weight:700; font-size:0.85rem; color:white; cursor:pointer; box-shadow:0 5px 12px rgba(36,99,235,0.3); transition:all 0.2s ease; font-family:inherit; }
+    .btn-primary:hover { transform:translateY(-2px); background:#1b4ed3; box-shadow:0 12px 22px rgba(36,99,235,0.35); }
+    .hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:3.5rem; padding:5rem 0 4rem; align-items:center; }
+    .badge-pill { display:inline-flex; align-items:center; gap:8px; background:rgba(36,99,235,0.08); backdrop-filter:blur(4px); padding:5px 18px; border-radius:80px; border:1px solid rgba(36,99,235,0.18); margin-bottom:1.6rem; }
+    .pulse-dot { width:8px; height:8px; background:var(--primary); border-radius:50%; animation:soft-pulse 1.5s infinite; }
+    @keyframes soft-pulse { 0% { opacity:0.5; transform:scale(0.8); } 100% { opacity:1; transform:scale(1.2); } }
+    .hero-title { font-size:clamp(2.2rem,5vw,3.6rem); font-weight:800; font-family:'Space Grotesk',sans-serif; line-height:1.2; letter-spacing:-1.5px; margin-bottom:1.2rem; }
+    .gradient-text { background:linear-gradient(125deg,var(--primary),#5e8eff); background-clip:text; -webkit-background-clip:text; color:transparent; }
+    .hero-desc { font-size:1rem; color:var(--text-secondary); line-height:1.65; margin-bottom:2rem; max-width:480px; }
+    .cta-group { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:2.8rem; }
+    .btn-outline { background:transparent; border:1.5px solid rgba(36,99,235,0.35); padding:11px 28px; border-radius:44px; font-weight:700; font-size:0.85rem; transition:all 0.2s; cursor:pointer; }
+    .btn-outline:hover { border-color:var(--primary); background:rgba(36,99,235,0.04); }
+    .stats-row { display:flex; gap:2rem; flex-wrap:wrap; }
+    .stat-val { font-size:1.7rem; font-weight:800; color:#0f2b4f; }
+    .stat-label { font-size:0.7rem; font-weight:600; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; }
+    .stat-divider { width:1px; background:#e2e8f0; margin:0 0.2rem; }
+    .hero-visual { position:relative; }
+    .glass-card { background:rgba(255,255,255,0.96); backdrop-filter:blur(14px); border-radius:2rem; border:1px solid rgba(36,99,235,0.18); padding:1.5rem; box-shadow:var(--shadow-sm); }
+    .scan-area { background:var(--primary-soft); border-radius:1.5rem; padding:1.4rem; text-align:center; margin-bottom:1rem; }
+    .face-circle { width:96px; height:96px; background:white; border-radius:50%; margin:0 auto 1rem; display:flex; align-items:center; justify-content:center; position:relative; box-shadow:0 4px 14px rgba(0,0,0,0.04); }
+    .scan-ring { position:absolute; inset:-5px; border-radius:50%; border:2px dashed var(--primary); opacity:0.7; animation:rotateRing 6s linear infinite; }
+    @keyframes rotateRing { to { transform:rotate(360deg); } }
+    .status-text { font-weight:800; color:var(--primary); margin:10px 0; font-size:0.9rem; }
+    .progress-bar-bg { background:#dce5f5; height:5px; border-radius:20px; overflow:hidden; }
+    .progress-animated { width:65%; height:100%; background:linear-gradient(90deg,var(--primary),#5e8eff); animation:slideProgress 2.2s infinite ease; }
+    @keyframes slideProgress { 0% { width:20%; } 50% { width:85%; } 100% { width:20%; } }
+    .student-row { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border-light); }
+    .student-info { display:flex; align-items:center; gap:12px; }
+    .avatar { width:38px; height:38px; background:linear-gradient(145deg,#c5d9ff,#aec4fa); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; color:#11213e; }
+    .present-badge { background:#e3f7ec; color:#0f6e3f; font-size:0.7rem; font-weight:800; padding:4px 12px; border-radius:60px; }
+    .floating-chip { position:absolute; background:white; border-radius:60px; padding:0.35rem 1rem; box-shadow:0 12px 20px -8px rgba(0,0,0,0.12); font-weight:700; font-size:0.7rem; top:-18px; right:-15px; animation:floatY 4s infinite alternate; display:flex; gap:6px; align-items:center; }
+    @keyframes floatY { 0% { transform:translateY(0px); } 100% { transform:translateY(-8px); } }
+    .section-pad { padding:80px 0; }
+    .section-title { font-size:clamp(1.8rem,4vw,2.6rem); font-weight:800; text-align:center; margin-bottom:0.8rem; font-family:'Space Grotesk',sans-serif; }
+    .features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1.8rem; margin-top:3rem; }
+    .feature-tile { background:white; border-radius:1.5rem; padding:1.8rem; border:1px solid #eef2fc; transition:all 0.25s; }
+    .feature-tile:hover { transform:translateY(-5px); border-color:var(--primary); box-shadow:var(--shadow-hover); }
+    .feature-icon { background:#eef3fe; width:52px; height:52px; border-radius:18px; display:flex; align-items:center; justify-content:center; margin-bottom:1.4rem; }
+    .steps-wrapper { display:flex; flex-wrap:wrap; justify-content:center; gap:2.5rem; margin-top:3rem; }
+    .step-card { text-align:center; max-width:220px; }
+    .step-number { width:58px; height:58px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.6rem; color:white; margin:0 auto 1.2rem; box-shadow:0 12px 18px -8px var(--primary-glow); }
+    .cta-block { background:linear-gradient(125deg,#0c1b33,#102744); border-radius:2rem; padding:3rem 1.5rem; text-align:center; margin:2rem 0; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(8,20,44,0.75); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center; padding:1rem; }
+    .modal-overlay.active { display:flex; }
+    .modal-card { background:white; max-width:440px; width:100%; border-radius:2rem; padding:2rem 1.8rem; animation:modalUp 0.3s ease-out; }
+    @keyframes modalUp { from { opacity:0; transform:scale(0.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    .input-field { margin-bottom:1.2rem; }
+    .input-field label { font-weight:700; font-size:0.75rem; display:block; margin-bottom:0.3rem; }
+    .input-field input { width:100%; padding:14px 18px; border-radius:1rem; border:1.5px solid #e3eaf5; font-family:inherit; }
+    .input-field input:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(36,99,235,0.15); }
+    .error-msg { background:#fff0f0; color:#cd3c3c; border-radius:60px; font-size:0.7rem; padding:8px 12px; text-align:center; margin-top:10px; display:none; }
+    footer { text-align:center; padding:2rem; color:var(--text-muted); font-size:0.8rem; border-top:1px solid rgba(0,0,0,0.05); }
+    @media (max-width:880px) { .hero-grid { grid-template-columns:1fr; gap:2rem; padding:3rem 0 2rem; text-align:center; } .hero-desc { margin-left:auto; margin-right:auto; } .cta-group, .stats-row { justify-content:center; } .nav-links { display:none; } .container { padding:0 1.25rem; } .floating-chip { display:none; } .section-pad { padding:60px 0; } }
+    @media (max-width:600px) { .glass-card { padding:1rem; } .scan-area { padding:1rem; } .hero-title { letter-spacing:-0.02em; } .stats-row { gap:1rem; flex-wrap:wrap; } .stat-divider { display:none; } .stat-val { font-size:1.4rem; } .btn-primary, .btn-outline { padding:9px 18px; font-size:0.8rem; } .features-grid { gap:1rem; } .feature-tile { padding:1.3rem; } }
+    @media (max-width:480px) { .modal-card { padding:1.5rem; } .brand-text h1 { font-size:1.2rem; } .logo-icon { width:36px; height:36px; } }
+    .mobile-menu-btn { background:none; border:none; display:none; flex-direction:column; gap:5px; }
+    @media (max-width:880px) { .mobile-menu-btn { display:flex; } .mobile-menu-btn span { width:24px; height:2px; background:var(--primary); border-radius:4px; } }
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div class="soft-glow" style="top: -15%; left: -8%;"></div>
+<div class="soft-glow" style="bottom: -10%; right: -5%; background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);"></div>
+
+<nav class="glass-nav" id="navbar">
+  <div class="container nav-flex">
+    <a href="#" class="brand-logo">
+      <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <div class="brand-text"><h1>FaceTrack</h1><p>AI attendance</p></div>
+    </a>
+    <button class="btn-primary" id="openModalBtn">Log In →</button>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-title">Attendance that <span class="gradient-text">just happens</span> on entry.</div>
+        <p class="hero-desc">Students walk in — FaceTrack instantly marks presence. Zero friction, 99% precision, real‑time sync.</p>
+        <div class="cta-group"><button class="btn-primary" id="heroCtaBtn">Get started free →</button><button class="btn-outline" id="demoBtn">Watch demo ▸</button></div>
+        <div class="stats-row"><div><div class="stat-val">2.4K+</div><div class="stat-label">Active students</div></div><div class="stat-divider"></div><div><div class="stat-val">98.9%</div><div class="stat-label">Recognition</div></div><div class="stat-divider"></div><div><div class="stat-val">0 sec</div><div class="stat-label">Manual effort</div></div></div>
+      </div>
+      <div class="hero-visual">
+        <div class="glass-card">
+          <div class="scan-area"><div class="face-circle"><div class="scan-ring"></div><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#2463eb" stroke-width="1.8"><circle cx="12" cy="10" r="3"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="2 2"/></svg></div><div class="status-text" id="dynamicStatus">🔍 Detecting faces...</div><div class="progress-bar-bg"><div class="progress-animated"></div></div></div>
+          <div class="floating-chip"><span>⚡</span> Live AI Edge</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="features" class="section-pad">
+    <div class="container"><div class="section-title">Why modern campuses <span class="gradient-text">trust FaceTrack</span></div>
+      <div class="features-grid">
+        <div class="feature-tile"><div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2463eb"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><h3>0.4s recognition</h3><p>Sub‑second matching with anti‑spoofing liveness.</p></div>
+        <div class="feature-tile"><div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2463eb"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Enterprise privacy</h3><p>On‑prem encryption & GDPR compliance.</p></div>
+        <div class="feature-tile"><div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2463eb"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7"/></svg></div><h3>Live analytics</h3><p>Dashboard, reports & alerts in real time.</p></div>
+        <div class="feature-tile"><div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2463eb"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><h3>Zero hardware</h3><p>Works with existing IP cams or webcams.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="section-pad" style="padding-top: 0;">
+    <div class="container"><div class="section-title">How it works — <span class="gradient-text">three steps</span></div>
+      <div class="steps-wrapper"><div class="step-card"><div class="step-number">1</div><h3>Walk through</h3><p>Student enters camera zone</p></div><div class="step-card"><div class="step-number">2</div><h3>AI match</h3><p>Neural engine identifies instantly</p></div><div class="step-card"><div class="step-number">3</div><h3>Attendance logged</h3><p>Syncs with faculty dashboard</p></div></div>
+    </div>
+  </section>
+
+  <div class="container"><div class="cta-block"><h2 style="color: white; font-size: 1.8rem;">Join the future of attendance</h2><p style="color: #b9d0ff; margin-top: 0.6rem;">Seamless, secure, built for institutions.</p><button class="btn-primary" id="ctaFooterBtn" style="background: white; color: var(--primary); margin-top: 1.2rem;">Access dashboard →</button></div></div>
+</main>
+
+<footer><p>© 2026 FaceTrack — AI attendance infrastructure. All rights reserved.</p></footer>
+
+<!-- LOGIN MODAL with Django integration -->
+<div id="loginModal" class="modal-overlay">
+  <div class="modal-card">
+    <div style="text-align: center; margin-bottom: 1rem;">
+      <div class="logo-icon" style="margin: 0 auto 12px; width: 50px; height: 50px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <h2 style="font-weight: 800;">Welcome back</h2>
+      <p style="color: #5b6e8e;">Sign in to dashboard</p>
+    </div>
+
+    <!-- Django form: posts to login_view, includes CSRF -->
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      <div class="input-field">
+        <label>UUCMS ID</label>
+        <input type="text" name="login" id="modalUsername" placeholder="admin@campus.edu" autocomplete="off" required>
+      </div>
+      <div class="input-field">
+        <label>Password</label>
+        <input type="password" name="password" id="modalPassword" placeholder="········" required>
+      </div>
+
+      <!-- Display Django messages (errors) here -->
+      {% if messages %}
+        <div class="error-msg" style="display: block;">
+          {% for message in messages %}
+            {{ message }}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div id="modalError" class="error-msg"></div>
+      {% endif %}
+
+      <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">Log in →</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Ensure modal opens/closes, and if there are Django messages -> keep modal open
+  const modal = document.getElementById('loginModal');
+  const openModalBtns = document.querySelectorAll('#openModalBtn, #heroCtaBtn, #ctaFooterBtn');
+
+  function openModal() { modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+  function closeModal() { modal.classList.remove('active'); document.body.style.overflow = ''; }
+
+  openModalBtns.forEach(btn => btn.addEventListener('click', openModal));
+
+  // Close modal if background clicked
+  modal.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+  // Auto-open modal if there are authentication error messages (from Django)
+  {% if messages %}
+    window.addEventListener('DOMContentLoaded', () => {
+      openModal();
+    });
+  {% endif %}
+
+  // Navbar scroll effect
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 15) navbar.classList.add('nav-scrolled');
+    else navbar.classList.remove('nav-scrolled');
+  });
+
+  // Demo button alert
+  document.getElementById('demoBtn')?.addEventListener('click', () => alert("🎥 Demo: AI captures faces in real-time with 98.9% accuracy. No physical registers needed."));
+
+  // Animated status text (unchanged)
+  const statusSpan = document.getElementById('dynamicStatus');
+  const statusMessages = ["🔍 Scanning faces...", "🎯 Matching database...", "✅ Identity confirmed", "📊 Attendance logged"];
+  let step = 0;
+  setInterval(() => {
+    step = (step+1) % statusMessages.length;
+    if(statusSpan) {
+      statusSpan.style.opacity = '0';
+      setTimeout(()=>{
+        statusSpan.textContent = statusMessages[step];
+        statusSpan.style.opacity='1';
+        if(step===2) statusSpan.style.color='#10b981';
+        else statusSpan.style.color='#2463eb';
+      },120);
+    }
+  }, 2200);
+</script>
+</body>
+</html>
+
+================================================================================
+FILE: templates/attendance/face_recognition.html
+================================================================================
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>GeoFace | FaceTrack Attendance</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --primary: #2463eb;
+      --primary-dark: #1345b0;
+      --primary-soft: #eef3fe;
+      --success: #10b981;
+      --text-muted: #5b6e8c;
+      --shadow-md: 0 20px 35px -12px rgba(0,0,0,0.08);
+      --radius-xl: 2rem;
+    }
+    body {
+      font-family: 'Inter', system-ui;
+      background: linear-gradient(135deg, #fafcff 0%, #f3f7fe 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .bg-mesh { position:fixed; inset:0; z-index:-2; background:radial-gradient(ellipse at 10% 20%, rgba(36,99,235,0.03) 0%, transparent 55%), radial-gradient(ellipse at 90% 70%, rgba(59,130,246,0.05) 0%, transparent 60%), linear-gradient(115deg,#fff 0%,#f2f6fd 100%); }
+    .geoface-card { max-width:550px; width:100%; background:rgba(255,255,255,0.96); backdrop-filter:blur(12px); border-radius:var(--radius-xl); box-shadow:var(--shadow-md); border:1px solid rgba(36,99,235,0.15); overflow:hidden; }
+    .card-header { background:linear-gradient(135deg, var(--primary), #3e50f5); padding:1.2rem 1.5rem; text-align:center; }
+    .card-header h1 { font-family:'Space Grotesk'; font-weight:700; font-size:1.5rem; color:white; }
+    .card-header p { color:rgba(255,255,255,0.85); font-size:0.75rem; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .card-content { padding:1.5rem; }
+    .status-panel { background:var(--primary-soft); border-radius:60px; padding:0.75rem 1.2rem; margin-bottom:1.5rem; text-align:center; font-weight:600; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:10px; }
+    #status { color:var(--primary-dark); line-height:1.4; }
+    #video-container { position:relative; width:100%; margin:0 auto 1.2rem; background:#0a0f1c; border-radius:1.5rem; overflow:hidden; box-shadow:0 20px 35px -12px rgba(0,0,0,0.2); aspect-ratio:16/9; }
+    #video { width:100%; height:100%; object-fit:cover; display:none; }
+    #canvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; display:none; }
+    #controls { display:none; }
+    #backToDashboardBtn { background:var(--success); border:none; padding:12px 24px; border-radius:60px; font-weight:700; font-size:0.9rem; color:white; cursor:pointer; width:100%; justify-content:center; margin-top:1rem; transition:0.2s; }
+    #backToDashboardBtn:hover { background:#0d9b6e; transform:translateY(-1px); }
+    .helper-text { text-align:center; font-size:0.7rem; color:var(--text-muted); margin-top:1rem; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary-soft);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 40px;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+    transition: 0.2s;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+.back-btn:hover {
+    background: var(--primary);
+    color: white;
+}
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div class="geoface-card">
+  <div class="card-header">
+    <h1><i class="fas fa-camera-retro"></i> GeoFace Attendance</h1>
+    <p><i class="fas fa-map-marker-alt"></i> Location‑verified · Auto‑capture</p>
+  </div>
+  <div class="card-content">
+    <div class="status-panel"><i class="fas fa-spinner fa-pulse"></i><span id="status">Checking your location...</span></div>
+    <button id="backToDashboardEarlyBtn" class="back-btn" onclick="goBackToDashboard()">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </button>
+    <div id="video-container">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+    </div>
+    <div id="controls" style="display:none;">
+      <button id="startBtn" disabled>Start</button>
+      <button id="stopBtn" disabled>Stop</button>
+    </div>
+    <div class="helper-text"><i class="fas fa-shield-alt"></i> Camera will start automatically once location is verified</div>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('2d');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  let stream;
+  let socket;
+  let intervalId;
+  let currentLatitude, currentLongitude;
+  let autoStarted = false;
+  // At the top of your script, get the roll number from the logged-in student
+  const studentRollNo = "{{ request.user.studentprofile.roll_no|default:'' }}";
+
+  function setStatus(message, icon = 'info-circle') {
+    const statusSpan = document.getElementById('status');
+    statusSpan.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+  }
+
+  navigator.geolocation.getCurrentPosition(async (position) => {
+    currentLatitude = position.coords.latitude;
+    currentLongitude = position.coords.longitude;
+
+    const response = await fetch("{% url 'verify_location' %}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+      body: JSON.stringify({ latitude: currentLatitude, longitude: currentLongitude })
+    });
+    const data = await response.json();
+
+    if (data.status === 'success' && data.is_inside) {
+      setStatus(data.message, 'check-circle');
+      if (!autoStarted) {
+        autoStarted = true;
+        setStatus('Location verified. Starting camera...', 'camera');
+        setTimeout(() => startCamera(), 300);
+      }
+    } else {
+      setStatus(data.message || 'Outside campus. Access denied.', 'times-circle');
+    }
+  }, (error) => {
+    setStatus('Unable to get location. Please allow permissions.', 'exclamation-triangle');
+    console.error(error);
+  });
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      
+      // Wait for video metadata to get dimensions
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          video.style.display = 'block';
+          canvas.style.display = 'block';
+          setStatus('Camera active – detecting face...', 'eye');
+          resolve();
+        };
+      });
+      
+      await video.play();
+      startWebSocket();
+      intervalId = setInterval(sendFrame, 800);
+    } catch (error) {
+      console.error('Camera error:', error);
+      setStatus('Camera access denied. Please allow permissions.', 'ban');
+    }
+  }
+
+  function stopCamera() {
+    clearInterval(intervalId);
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({action: 'stop'}));
+    video.style.display = 'none';
+    canvas.style.display = 'none';
+  }
+
+  function startWebSocket() {
+    const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const ws_url = `${ws_scheme}://${window.location.host}/ws/face_detection/`;
+    socket = new WebSocket(ws_url);
+
+    socket.onopen = () => {
+        console.log("WebSocket connected");
+        if (studentRollNo) {
+            socket.send(JSON.stringify({
+                action: 'init',
+                roll_no: studentRollNo
+            }));
+        } else {
+            console.error("No roll number found for logged-in student");
+            // Optionally show a message to the user
+            document.getElementById('status').innerHTML = '⚠️ Student profile not found. Please contact admin.';
+        }
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.faces) {
+        drawFaces(data.faces);
+        if (data.faces.length > 0 && !window.attendanceRecorded) {
+          window.attendanceRecorded = true;
+          setStatus('✅ Attendance recorded successfully!', 'check-circle');
+          stopCamera();
+          if (!document.getElementById('backToDashboardBtn')) {
+            const backBtn = document.createElement('button');
+            backBtn.id = 'backToDashboardBtn';
+            backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Dashboard';
+            backBtn.onclick = () => { window.location.href = "{% url 'student_dashboard' %}"; };
+            document.querySelector('.card-content').appendChild(backBtn);
+          }
+        }
+      }
+      if (data.error) {
+        setStatus(data.error, 'exclamation-circle');
+      }
+    };
+
+    socket.onclose = () => console.log("WebSocket disconnected");
+    socket.onerror = (err) => console.error("WebSocket error:", err);
+  }
+
+  function sendFrame() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    if (!video.videoWidth || !video.videoHeight) return;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    socket.send(JSON.stringify({ frame: dataUrl, lat: currentLatitude, lon: currentLongitude }));
+  }
+
+  function drawFaces(faces) {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    faces.forEach(face => {
+      context.beginPath();
+      context.rect(face.x, face.y, face.width, face.height);
+      context.lineWidth = 3;
+      context.strokeStyle = 'green';
+      context.stroke();
+      context.font = "bold 18px 'Inter', 'Space Grotesk', sans-serif";
+      context.fillStyle = 'green';
+      context.fillText(face.name, face.x, face.y + face.height + 22);
+    });
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  function goBackToDashboard() {
+      window.location.href = "{% url 'student_dashboard' %}";
+  }
+  startBtn.addEventListener('click', startCamera);
+  stopBtn.addEventListener('click', stopCamera);
+</script>
+</body>
+</html>
+
+================================================================================
+FILE: templates/attendance/student_dashboard.html
+================================================================================
+
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=yes" />
+  <title>FaceTrack | Student Dashboard</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* ========== COMPLETE STYLING FROM YOUR EXAMPLE (kept identical) ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #2463eb;
+      --primary-dark: #1345b0;
+      --primary-soft: #eef3fe;
+      --primary-glow: rgba(36, 99, 235, 0.25);
+      --accent: #3b82f6;
+      --card-white: #ffffff;
+      --text-main: #0a1e3c;
+      --text-secondary: #334155;
+      --text-muted: #5b6e8c;
+      --border-light: #eef2f8;
+      --shadow-sm: 0 12px 30px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.02);
+      --shadow-md: 0 20px 35px -12px rgba(0, 0, 0, 0.08);
+      --radius-xl: 2rem;
+      --radius-lg: 1.5rem;
+      --success: #10b981;
+      --success-bg: #d1fae5;
+    }
+
+    body {
+      font-family: 'Inter', 'Space Grotesk', system-ui, sans-serif;
+      background: linear-gradient(135deg, #fafcff 0%, #f3f7fe 100%);
+      color: var(--text-main);
+      overflow-x: hidden;
+      padding-bottom: 70px;
+    }
+
+    .bg-mesh {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background: radial-gradient(ellipse at 10% 20%, rgba(36, 99, 235, 0.03) 0%, transparent 55%),
+                  radial-gradient(ellipse at 90% 70%, rgba(59,130,246,0.05) 0%, transparent 60%),
+                  linear-gradient(115deg, #ffffff 0%, #f2f6fd 100%);
+    }
+
+    .glass-nav {
+      backdrop-filter: blur(18px);
+      background: rgba(255, 255, 255, 0.92);
+      border-bottom: 1px solid rgba(36, 99, 235, 0.12);
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      transition: all 0.25s;
+    }
+
+    .nav-scrolled {
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.75rem;
+    }
+
+    .nav-flex {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 74px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      background: linear-gradient(145deg, var(--primary), #4870f5);
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 15px -6px var(--primary-glow);
+    }
+
+    .brand-text h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-family: 'Space Grotesk', monospace;
+      background: linear-gradient(125deg, #13294b, var(--primary));
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .brand-text p {
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--primary);
+    }
+
+    .profile-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--card-white);
+      padding: 6px 14px 6px 10px;
+      border-radius: 60px;
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .logout-btn {
+      background: transparent;
+      border: 1.5px solid #ef4444;
+      color: #ef4444;
+      padding: 8px 18px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      margin-left: 12px;
+    }
+
+    .logout-btn:hover {
+      background: #ef4444;
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .mobile-user-name {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary-soft);
+      padding: 6px 14px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--primary);
+      cursor: pointer;
+    }
+
+    .avatar-small {
+      width: 32px;
+      height: 32px;
+      background: var(--primary-soft);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .dashboard-grid {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 2rem;
+      margin: 2rem auto 3rem;
+      max-width: 1000px;
+    }
+
+    .dashboard-grid > div:first-child {
+      flex: 1;
+      max-width: 600px;
+    }
+
+    /* Welcome Card */
+    .welcome-card {
+      background: var(--card-white);
+      border-radius: var(--radius-xl);
+      padding: 1.8rem 2rem;
+      margin-bottom: 1.8rem;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-light);
+      text-align: center;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .welcome-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      font-family: 'Space Grotesk';
+    }
+
+    .welcome-sub {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
+
+    /* Action Card */
+    .action-card {
+      background: var(--card-white);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-light);
+      margin-bottom: 1.8rem;
+      text-align: center;
+    }
+
+    .attendance-btn {
+      background: linear-gradient(105deg, var(--primary), #3e50f5);
+      border: none;
+      padding: 16px 32px;
+      border-radius: 60px;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(36, 99, 235, 0.35);
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-family: inherit;
+      margin-bottom: 1rem;
+    }
+
+    .attendance-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 22px rgba(36, 99, 235, 0.45);
+    }
+
+    .attendance-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #a0b9e0;
+    }
+
+    .location-status {
+      background: #f1f5f9;
+      border-radius: 60px;
+      padding: 8px 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-top: 0.5rem;
+    }
+
+    .location-status.loading { color: #2c6e9e; background: #e9f2fa; }
+    .location-status.success { color: #0e6e3b; background: #e0f6e8; }
+    .location-status.error { color: #bc3c2c; background: #ffe8e6; }
+
+    /* Info Panels */
+    .info-panel {
+      background: var(--card-white);
+      border-radius: var(--radius-xl);
+      padding: 1.6rem;
+      border: 1px solid var(--border-light);
+      margin-bottom: 1.5rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .panel-title {
+      font-weight: 800;
+      font-size: 1.1rem;
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .class-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .badge-present {
+      background: var(--success-bg);
+      color: var(--success);
+      font-weight: 700;
+      font-size: 0.7rem;
+      padding: 4px 12px;
+      border-radius: 60px;
+    }
+
+    .badge-pending {
+      background: #fff0e0;
+      color: #c26b2e;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--border-light);
+    }
+
+    .stat-row:last-child {
+      border-bottom: none;
+    }
+
+    .toast-msg {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary-dark);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 60px;
+      font-weight: 500;
+      z-index: 400;
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: 0.2s;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border-light);
+      display: none;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px 20px 14px;
+      z-index: 250;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .bottom-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: 0.2s;
+      padding: 6px 16px;
+      border-radius: 40px;
+    }
+
+    .bottom-nav-item i { font-size: 1.4rem; margin-bottom: 2px; }
+    .bottom-nav-item.active { color: var(--primary); background: var(--primary-soft); }
+    .bottom-nav-logout { color: #ef4444; }
+    .bottom-nav-logout.active { color: #ef4444; background: #fee2e2; }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border-light);
+      margin-top: 1rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 880px) {
+      .nav-links, .profile-badge { display: none; }
+      .mobile-user-name { display: flex; }
+      .container { padding: 0 1rem; }
+      .welcome-title { font-size: 1.4rem; }
+      .attendance-btn { width: 100%; justify-content: center; }
+      .bottom-nav { display: flex; }
+      body { padding-bottom: 70px; }
+      .class-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .toast-msg { bottom: 80px; white-space: normal; max-width: 85%; }
+    }
+
+    @media (min-width: 881px) { .bottom-nav { display: none; } }
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+
+<nav class="glass-nav" id="navbar">
+  <div class="container nav-flex">
+    <a href="#" class="brand-logo">
+      <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <div class="brand-text"><h1>FaceTrack</h1><p>student</p></div>
+    </a>
+    <div class="nav-links">
+      <a href="#" class="active" data-nav="home"><i class="fas fa-home"></i> Home</a>
+      <a href="#" data-nav="report"><i class="fas fa-chart-line"></i> Report</a>
+      <a href="#" data-nav="message"><i class="fas fa-comment"></i> Message</a>
+      <div class="profile-badge" id="profileBtn">
+        <div class="avatar-small"><i class="fas fa-user"></i></div>
+        <span>{{ request.user.username }}</span>
+      </div>
+      <button id="logoutBtnDesktop" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+    </div>
+    <div class="mobile-user-name" id="mobileUserName">
+      <i class="fas fa-user-circle"></i>
+      <span>{{ request.user.username }}</span>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="dashboard-grid">
+      <div>
+        <!-- Action Card with Location & Attendance -->
+        <div class="action-card">
+          <button id="attendanceBtn" class="attendance-btn" disabled>
+            <i class="fas fa-camera"></i> Mark Attendance →
+          </button>
+          <div id="locationStatus" class="location-status loading">
+            <i class="fas fa-spinner fa-pulse"></i> Verifying location...
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 12px;">
+            <i class="fas fa-map-marker-alt"></i> Location must be verified inside campus to enable attendance.
+          </p>
+        </div>
+
+        <!-- Today's Classes -->
+        <div class="info-panel">
+          <div class="panel-title"><i class="fas fa-calendar-alt"></i> Today's Schedule</div>
+          <div class="class-item"><span><strong>08:30 - 10:00</strong> · AI & Machine Learning</span><span class="badge-present"><i class="fas fa-check-circle"></i> Completed</span></div>
+          <div class="class-item"><span><strong>10:15 - 11:45</strong> · Computer Vision</span><span class="badge-present"><i class="fas fa-check-circle"></i> Completed</span></div>
+          <div class="class-item"><span><strong>12:00 - 13:30</strong> · Neural Networks</span><span class="badge-present"><i class="fas fa-check-circle"></i> Marked</span></div>
+          <div class="class-item"><span><strong>14:00 - 15:30</strong> · Ethics in AI</span><span id="pendingClassBadge" class="badge-present badge-pending"><i class="fas fa-hourglass-half"></i> Pending</span></div>
+        </div>
+        
+        <!-- Attendance Summary -->
+        <div class="info-panel">
+          <div class="panel-title"><i class="fas fa-chart-pie"></i> April Attendance</div>
+          <div class="stat-row"><span>Total Classes</span><strong id="totalClasses">24</strong></div>
+          <div class="stat-row"><span>Present</span><strong id="presentCount">22</strong></div>
+          <div class="stat-row"><span>Absent</span><strong>2</strong></div>
+          <div class="stat-row"><span>Attendance Rate</span><strong id="attRate" style="color: var(--primary); font-size: 1.1rem;">91.6%</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p><i class="far fa-copyright"></i> 2026 FaceTrack — AI-Powered Attendance System | Secure & Real-time</p>
+</footer>
+
+<div id="toastMsg" class="toast-msg"></div>
+
+<!-- BOTTOM NAVIGATION (Mobile) -->
+<div class="bottom-nav" id="bottomNav">
+  <a href="#" class="bottom-nav-item active" data-bottom="home"><i class="fas fa-home"></i><span>Home</span></a>
+  <a href="#" class="bottom-nav-item" data-bottom="message"><i class="fas fa-comment-dots"></i><span>Message</span></a>
+  <a href="#" class="bottom-nav-item" data-bottom="profile"><i class="fas fa-user-circle"></i><span>Profile</span></a>
+  <a href="#" class="bottom-nav-item bottom-nav-logout" id="mobileLogoutBtn"><i class="fas fa-sign-out-alt"></i><span>Exit</span></a>
+</div>
+
+<script>
+  // ========== DJANGO LOCATION VERIFICATION + ATTENDANCE REDIRECT ==========
+  const attendanceBtn = document.getElementById('attendanceBtn');
+  const locationStatusDiv = document.getElementById('locationStatus');
+  let isInsideCampus = false;
+
+  function showToast(msg, duration = 2500) {
+    const toast = document.getElementById('toastMsg');
+    toast.innerHTML = msg;
+    toast.style.opacity = '1';
+    setTimeout(() => { toast.style.opacity = '0'; }, duration);
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + "=")) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function checkLocation() {
+    if (!navigator.geolocation) {
+      locationStatusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Geolocation not supported.';
+      locationStatusDiv.className = 'location-status error';
+      attendanceBtn.disabled = true;
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(success, error);
+  }
+
+  function success(position) {
+    const studentLat = position.coords.latitude;
+    const studentLon = position.coords.longitude;
+
+    fetch("{% url 'verify_location' %}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken")
+      },
+      body: JSON.stringify({ latitude: studentLat, longitude: studentLon })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success' && data.is_inside) {
+        isInsideCampus = true;
+        locationStatusDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+        locationStatusDiv.className = 'location-status success';
+        attendanceBtn.disabled = false;
+        showToast("✅ Location verified! You can now mark attendance.", 3000);
+      } else {
+        isInsideCampus = false;
+        locationStatusDiv.innerHTML = '<i class="fas fa-times-circle"></i> ' + (data.message || "Outside campus area.");
+        locationStatusDiv.className = 'location-status error';
+        attendanceBtn.disabled = true;
+        showToast("❌ You are not inside the campus. Attendance not allowed.", 4000);
+      }
+    })
+    .catch(err => {
+      locationStatusDiv.innerHTML = '<i class="fas fa-bug"></i> Error verifying location.';
+      locationStatusDiv.className = 'location-status error';
+      attendanceBtn.disabled = true;
+      console.error(err);
+    });
+  }
+
+  function error() {
+    locationStatusDiv.innerHTML = '<i class="fas fa-location-arrow"></i> Unable to get location. Please allow permissions.';
+    locationStatusDiv.className = 'location-status error';
+    attendanceBtn.disabled = true;
+  }
+
+  // Attendance button redirects to face recognition page
+  function takeAttendance() {
+    if (!isInsideCampus) {
+      showToast("⚠️ Location verification required first.", 2000);
+      return;
+    }
+    showToast("📸 Redirecting to face recognition...", 1500);
+    setTimeout(() => {
+      window.location.href = "{% url 'face_recognition_page' %}?verified=1";
+    }, 800);
+  }
+
+  attendanceBtn.addEventListener('click', takeAttendance);
+  window.addEventListener('DOMContentLoaded', checkLocation);
+
+  // ========== LOGOUT (Django URL) ==========
+  function handleLogout() {
+    showToast("👋 Logging out...", 1000);
+    setTimeout(() => {
+      window.location.href = "{% url 'logout' %}";
+    }, 500);
+  }
+  document.getElementById('logoutBtnDesktop')?.addEventListener('click', handleLogout);
+  document.getElementById('mobileLogoutBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    handleLogout();
+  });
+
+  // ========== NAVIGATION & UI POLISH (preserved from example) ==========
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 15) navbar.classList.add('nav-scrolled');
+    else navbar.classList.remove('nav-scrolled');
+  });
+
+  function setActiveNav(activeId) {
+    document.querySelectorAll('.nav-links a').forEach(link => link.classList.remove('active'));
+    document.querySelectorAll('.bottom-nav-item').forEach(item => item.classList.remove('active'));
+    if (activeId === 'home') document.querySelector('.nav-links a[data-nav="home"]')?.classList.add('active');
+    else if (activeId === 'report') document.querySelector('.nav-links a[data-nav="report"]')?.classList.add('active');
+    else if (activeId === 'message') document.querySelector('.nav-links a[data-nav="message"]')?.classList.add('active');
+    document.querySelector(`.bottom-nav-item[data-bottom="${activeId}"]`)?.classList.add('active');
+  }
+
+  function handleNavigation(screen) {
+    if (screen === 'home') showToast("🏠 Dashboard", 1200);
+    else if (screen === 'message') showToast("💬 Messages (coming soon)", 1500);
+    else if (screen === 'profile') showToast("👤 Profile details", 1500);
+    else if (screen === 'report') showToast("📊 Reports (coming soon)", 1500);
+    setActiveNav(screen);
+  }
+
+  document.querySelectorAll('.nav-links a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const navType = link.getAttribute('data-nav');
+      if (navType) handleNavigation(navType);
+    });
+  });
+  document.querySelectorAll('.bottom-nav-item:not(#mobileLogoutBtn)').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const type = item.getAttribute('data-bottom');
+      if (type) handleNavigation(type);
+    });
+  });
+  document.getElementById('profileBtn')?.addEventListener('click', () => handleNavigation('profile'));
+  document.getElementById('mobileUserName')?.addEventListener('click', () => handleNavigation('profile'));
+
+  // Update pending badge & stats when attendance is marked (optional)
+  // This will be handled by the face recognition page; here we just simulate a visual update if redirected back.
+  // (Kept from original example for consistency)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('marked') === '1') {
+    const pendingBadge = document.getElementById('pendingClassBadge');
+    if (pendingBadge && pendingBadge.innerText.includes('Pending')) {
+      pendingBadge.innerHTML = '<i class="fas fa-check-circle"></i> Marked ✓';
+      pendingBadge.classList.remove('badge-pending');
+      pendingBadge.style.background = '#d1fae5';
+    }
+    let presentElem = document.getElementById('presentCount');
+    let totalElem = document.getElementById('totalClasses');
+    let rateElem = document.getElementById('attRate');
+    if (presentElem && totalElem && rateElem) {
+      let present = parseInt(presentElem.innerText);
+      let total = parseInt(totalElem.innerText);
+      if (!isNaN(present) && !isNaN(total) && present < total) {
+        let newPresent = present + 1;
+        presentElem.innerText = newPresent;
+        rateElem.innerText = Math.round((newPresent / total) * 100) + '%';
+      }
+    }
+    showToast("✅ Attendance recorded successfully!", 3000);
+  }
+</script>
+</body>
+</html>
+
+================================================================================
+FILE: attendance/routing.py
+================================================================================
+
+from django.urls import re_path
+from . import consumers
+
+websocket_urlpatterns = [
+    re_path(r'ws/face_detection/$', consumers.FaceDetectionConsumer.as_asgi()),
+]
+
+================================================================================
+FILE: attendance/admin.py
+================================================================================
+
+from django.contrib import admin
+from attendance.models import AttendanceRecord, CampusBoundary
+# Register your models here.
+admin.site.register(AttendanceRecord)
+admin.site.register(CampusBoundary)
+
+
+================================================================================
+FILE: attendance/consumers.py
+================================================================================
+
+import json
+import base64
+import numpy as np
+import cv2
+import face_recognition
+from io import BytesIO
+from django.utils import timezone
+from channels.generic.websocket import AsyncWebsocketConsumer
+from asgiref.sync import sync_to_async
+from accounts.models import StudentProfile
+from .models import AttendanceRecord, CampusBoundary
+from shapely.geometry import Point, Polygon
+
+class FaceDetectionConsumer(AsyncWebsocketConsumer):
+    # Instance variables (per connection)
+    student_encoding = None
+    student_profile = None
+    student_name = None
+
+    async def connect(self):
+        await self.accept()
+        print("🟢 WebSocket Connected")
+
+    async def disconnect(self, close_code):
+        print("🔴 WebSocket Disconnected")
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+
+        # Initial setup from frontend – load the encoding for the logged-in student
+        if data.get("action") == "init":
+            roll_no = data.get("roll_no")   # received from frontend
+            await self.load_encoding_for_student(roll_no)
+            return
+
+        # Stop button
+        if data.get("action") == "stop":
+            await self.close()
+            return
+
+        # Frame data with location
+        frame_data = data.get("frame")
+        lat = data.get("lat")
+        lon = data.get("lon")
+
+        if frame_data and lat is not None and lon is not None:
+            is_inside = await self.is_within_campus(lat, lon)
+            if is_inside:
+                faces = await self.detect_faces(frame_data, lat, lon)
+                await self.send(text_data=json.dumps({'faces': faces}))
+            else:
+                await self.send(text_data=json.dumps({'error': 'Outside campus'}))
+
+    async def detect_faces(self, frame_data, lat, lon):
+        """Detect faces, compare only with the logged-in student's encoding."""
+        if self.student_encoding is None:
+            return []   # no encoding loaded
+
+        try:
+            # Decode base64 image
+            if ',' in frame_data:
+                frame_data = frame_data.split(',')[1]
+            img_bytes = base64.b64decode(frame_data)
+            np_arr = np.frombuffer(img_bytes, np.uint8)
+            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # Detect face locations and encodings
+            face_locations = face_recognition.face_locations(rgb_frame)
+            face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+
+            recognized_faces = []
+            for encode_face, face_loc in zip(face_encodings, face_locations):
+                # Compare with the single known encoding
+                matches = face_recognition.compare_faces([self.student_encoding], encode_face, tolerance=0.6)
+                if matches[0]:
+                    # Mark attendance
+                    await self.mark_attendance(lat, lon)
+
+                    top, right, bottom, left = face_loc
+                    recognized_faces.append({
+                        "x": int(left),
+                        "y": int(top),
+                        "width": int(right - left),
+                        "height": int(bottom - top),
+                        "name": self.student_name
+                    })
+            return recognized_faces
+        except Exception as e:
+            print(f"⚠️ Error in detect_faces: {e}")
+            return []
+
+    @sync_to_async
+    def is_within_campus(self, lat, lon):
+        boundary = CampusBoundary.objects.filter(is_active=True).first()
+        if not boundary or not boundary.boundary:
+            return False
+        poly_coords = boundary.boundary
+        if poly_coords[0] != poly_coords[-1]:
+            poly_coords = poly_coords + [poly_coords[0]]
+        campus_polygon = Polygon(poly_coords)
+        student_point = Point(lon, lat)
+        buffered_polygon = campus_polygon.buffer(0.00015)
+        return buffered_polygon.contains(student_point)
+
+    @sync_to_async
+    def mark_attendance(self, lat, lon):
+        """Mark attendance for the logged-in student."""
+        if self.student_profile is None:
+            return
+        today = timezone.now().date()
+        attendance, created = AttendanceRecord.objects.get_or_create(
+            student=self.student_profile,
+            date=today,
+            defaults={
+                'latitude': lat,
+                'longitude': lon,
+                'location_verified': True,
+                'face_verified': True,
+                'status': 'Present'
+            }
+        )
+        if not created and not attendance.face_verified:
+            attendance.face_verified = True
+            attendance.status = 'Present'
+            attendance.latitude = lat
+            attendance.longitude = lon
+            attendance.save()
+            print(f"✅ Attendance updated: {self.student_name}")
+        elif created:
+            print(f"✅ Attendance marked: {self.student_name}")
+
+    @sync_to_async
+    def load_encoding_for_student(self, roll_no):
+        """Load face encoding and student profile for the given roll number."""
+        try:
+            student = StudentProfile.objects.get(roll_no=roll_no)
+            if student.face_encoding:
+                encoding_list = json.loads(student.face_encoding)
+                self.student_encoding = np.array(encoding_list)
+                self.student_profile = student
+                self.student_name = student.user.get_full_name() or student.user.username
+                print(f"✅ Loaded encoding for {self.student_name} (roll: {roll_no})")
+            else:
+                print(f"⚠️ No face encoding found for student {roll_no}")
+        except StudentProfile.DoesNotExist:
+            print(f"❌ Student with roll number {roll_no} not found")
+
+================================================================================
+FILE: attendance/urls.py
+================================================================================
+
+from django.urls import path
+from attendance import views
+
+urlpatterns = [
+    path('student-dashboard/', views.student_dashboard, name='student_dashboard'),
+    path('verify-location/', views.verify_location, name='verify_location'),
+    path('face-recognition/', views.face_recognition_page, name='face_recognition_page'),
+
+    path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('api/courses/', views.api_courses, name='api_courses'),
+    path('api/courses/<str:course_name>/students/', views.api_course_students, name='api_course_students'),
+]
+
+================================================================================
+FILE: attendance/apps.py
+================================================================================
+
+from django.apps import AppConfig
+
+
+class AttendanceConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'attendance'
+
+
+================================================================================
+FILE: attendance/__init__.py
+================================================================================
+
+
+
+================================================================================
+FILE: attendance/tests.py
+================================================================================
+
+from django.test import TestCase
+
+# Create your tests here.
+
+
+================================================================================
+FILE: attendance/views.py
+================================================================================
+
+import json
+import logging
+from django.shortcuts import redirect, render
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ObjectDoesNotExist
+from shapely.geometry import Point, Polygon
+from .models import CampusBoundary
+from accounts.models import StudentProfile
+
+logger = logging.getLogger(__name__)
+
+
+@login_required
+def student_dashboard(request):
+    return render(request, 'attendance/student_dashboard.html')
+
+
+@login_required
+def verify_location(request):
+    """Verify if student's GPS location is inside the active campus boundary using polygon.
+    Does NOT create an attendance record – only returns location verification result."""
+    if request.method != 'POST':
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid request method. Use POST.'
+        }, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid JSON body.'
+        }, status=400)
+
+    # Extract and validate coordinates
+    try:
+        latitude = float(data.get('latitude'))
+        longitude = float(data.get('longitude'))
+        print(f"Received coordinates: {latitude}, {longitude}")
+    except (TypeError, ValueError):
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Latitude and longitude must be valid numbers.'
+        }, status=400)
+
+    # Basic coordinate range check
+    if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Coordinates out of valid range.'
+        }, status=400)
+
+    # Get active campus boundary with polygon
+    boundary = CampusBoundary.objects.filter(is_active=True).first()
+    if not boundary:
+        logger.warning("No active campus boundary configured.")
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Campus boundary is not configured. Please contact administrator.'
+        }, status=503)
+
+    # Validate boundary polygon
+    if not boundary.boundary or not isinstance(boundary.boundary, list) or len(boundary.boundary) < 3:
+        logger.error("Boundary polygon is missing or invalid (needs at least 3 points).")
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Campus boundary polygon is not properly configured.'
+        }, status=500)
+
+    # Build closed polygon
+    polygon_coords = boundary.boundary
+    if polygon_coords[0] != polygon_coords[-1]:
+        polygon_coords = polygon_coords + [polygon_coords[0]]
+    
+    try:
+        campus_polygon = Polygon(polygon_coords)
+    except Exception as e:
+        logger.error(f"Failed to create polygon from boundary: {e}")
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid campus polygon coordinates.'
+        }, status=500)
+
+    # Student's current location
+    student_point = Point(longitude, latitude)
+
+    # Add buffer for GPS accuracy (approx 16 meters)
+    buffered_polygon = campus_polygon.buffer(0.00015)
+    is_inside = buffered_polygon.contains(student_point)
+
+    # Return result – no attendance record is created
+    if is_inside:
+        request.session['location_verified'] = True
+        request.session.save()
+        return JsonResponse({
+            'status': 'success',
+            'is_inside': True,
+            'message': 'You are inside the campus. You can now take attendance.'
+        })
+    else:
+        return JsonResponse({
+            'status': 'error',
+            'is_inside': False,
+            'message': 'You are outside the campus. Attendance not allowed.'
+        })
+    
+@login_required
+def face_recognition_page(request):
+    # Allow access only if the 'verified' query parameter is present and equals '1'
+    #print(f"Face recognition page accessed with query params: {request.GET}")
+    if request.GET.get('verified') != '1':
+        return redirect('student_dashboard')
+    # Optional: also clear session or keep it
+    return render(request, 'attendance/face_recognition.html')
+
+
+from django.shortcuts import render
+from django.contrib.admin.views.decorators import staff_member_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from django.db.models import Count, Q
+from accounts.models import StudentProfile
+from attendance.models import *
+
+@staff_member_required(login_url='login')
+def admin_dashboard(request):
+    """Render the admin dashboard HTML"""
+    return render(request, 'admin_dashboard.html')
+
+@require_http_methods(['GET'])
+def api_courses(request):
+    """Return list of all courses with student count"""
+    courses = StudentProfile.objects.values('course').annotate(
+        student_count=Count('id')
+    ).order_by('course')
+    
+    # Optionally add full name and icon for each course
+    course_details = {
+        'BBA': {'full_name': 'Bachelor of Business Administration', 'icon': 'fas fa-chart-line'},
+        'BCA': {'full_name': 'Bachelor of Computer Applications', 'icon': 'fas fa-laptop-code'},
+        'BCOM': {'full_name': 'Bachelor of Commerce', 'icon': 'fas fa-chart-pie'},
+        'BA': {'full_name': 'Bachelor of Arts', 'icon': 'fas fa-landmark'},
+        'BSC': {'full_name': 'Bachelor of Science', 'icon': 'fas fa-flask'},
+    }
+    
+    data = []
+    for course in courses:
+        course_name = course['course']
+        data.append({
+            'short_name': course_name,
+            'full_name': course_details.get(course_name, {}).get('full_name', course_name),
+            'icon': course_details.get(course_name, {}).get('icon', 'fas fa-graduation-cap'),
+            'student_count': course['student_count'],
+        })
+    return JsonResponse({'departments': data})
+
+import logging
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods
+from django.http import JsonResponse
+from accounts.models import StudentProfile
+from attendance.models import AttendanceRecord
+
+logger = logging.getLogger(__name__)
+
+@require_http_methods(['GET'])
+def api_course_students(request, course_name):
+    # Get the current time in Django's configured timezone
+    now = timezone.localtime()  # returns local time (e.g., Asia/Kolkata)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timezone.timedelta(days=1)
+
+    print(f"[DEBUG] Today's range: {today_start} to {today_end}")
+
+    students = StudentProfile.objects.filter(course=course_name).select_related('user')
+    if not students.exists():
+        return JsonResponse({'error': 'Course not found'}, status=404)
+
+    # Query using the `created_at` datetime field – timezone‑aware
+    records = AttendanceRecord.objects.filter(
+        student__in=students,
+        created_at__gte=today_start,
+        created_at__lt=today_end
+    ).select_related('student')
+
+    print(f"[DEBUG] Found {records.count()} attendance records for today")
+
+    attendance_map = {}
+    for rec in records:
+        raw_status = rec.status
+        normalized = raw_status.strip().lower() if raw_status else ''
+        if normalized == 'present':
+            status = 'Present'
+        elif normalized == 'absent':
+            status = 'Absent'
+        else:
+            status = raw_status
+        attendance_map[rec.student.id] = status
+        print(f"[DEBUG] Student {rec.student.roll_no} -> raw '{raw_status}' -> normalized '{status}'")
+
+    students_data = []
+    for student in students:
+        status = attendance_map.get(student.id, 'Absent')
+        students_data.append({
+            'id': student.roll_no,
+            'name': student.user.get_full_name() or student.user.username,
+            'status': status,
+        })
+        print(f"[DEBUG] {student.roll_no}: final status = {status}")
+
+    present_count = sum(1 for s in students_data if s['status'] == 'Present')
+    absent_count = sum(1 for s in students_data if s['status'] == 'Absent')
+
+    response_data = {
+        'department': {
+            'short_name': course_name,
+            'full_name': course_name,
+            'icon': 'fas fa-users',
+        },
+        'students': students_data,
+        'present_count': present_count,
+        'absent_count': absent_count,
+        'total_students': len(students_data),
+        '_debug': {
+            'date_range_used': f"{today_start.date()}",
+            'records_found': records.count(),
+        }
+    }
+    return JsonResponse(response_data)
+
+================================================================================
+FILE: attendance/models.py
+================================================================================
+
+from django.db import models
+from accounts.models import StudentProfile
+from django.db.models import JSONField
+
+class CampusBoundary(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    boundary = models.JSONField(help_text="Store building boundary as list of [lon, lat] points", null=True, blank=True)  # store the exact campus shape
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+    
+class AttendanceRecord(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
+
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+
+    location_verified = models.BooleanField(default=False)
+    face_verified = models.BooleanField(default=False)
+
+    status = models.CharField(max_length=20, default='Pending')
+
+    date = models.DateField(auto_now_add=True)
+    time = models.TimeField(auto_now_add=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.student.roll_no} - {self.date} - {self.status}"

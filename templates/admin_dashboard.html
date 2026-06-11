@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <title>FaceTrack | Admin Dashboard - Course Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+            --primary: #2463eb;
+            --primary-dark: #1345b0;
+            --primary-soft: #eef3fe;
+            --card-white: #ffffff;
+            --text-main: #0a1e3c;
+            --text-secondary: #334155;
+            --text-muted: #5b6e8c;
+            --border-light: #eef2f8;
+            --shadow-sm: 0 12px 30px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.02);
+            --shadow-md: 0 20px 35px -12px rgba(0, 0, 0, 0.08);
+            --radius-xl: 2rem;
+            --radius-lg: 1.5rem;
+            --success: #10b981;
+            --absent: #ef4444;
+        }
+        body { font-family: 'Inter', 'Space Grotesk', system-ui, sans-serif; background: linear-gradient(135deg, #fafcff 0%, #f3f7fe 100%); color: var(--text-main); overflow-x: hidden; min-height: 100vh; padding-bottom: 70px; }
+        .bg-mesh { position: fixed; inset:0; z-index:-2; background: radial-gradient(ellipse at 10% 20%, rgba(36,99,235,0.03) 0%, transparent 55%), radial-gradient(ellipse at 90% 70%, rgba(59,130,246,0.05) 0%, transparent 60%), linear-gradient(115deg, #ffffff 0%, #f2f6fd 100%); }
+        .glass-nav { backdrop-filter: blur(18px); background: rgba(255,255,255,0.92); border-bottom:1px solid rgba(36,99,235,0.12); position:sticky; top:0; z-index:200; transition:all 0.25s; }
+        .container { max-width:1280px; margin:0 auto; padding:0 1.75rem; }
+        .nav-flex { display:flex; align-items:center; justify-content:space-between; height:74px; flex-wrap:wrap; gap:1rem; }
+        .brand-logo { display:flex; align-items:center; gap:12px; text-decoration:none; cursor:pointer; }
+        .logo-icon { background:linear-gradient(145deg, var(--primary), #4870f5); width:42px; height:42px; border-radius:14px; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 15px -6px rgba(36,99,235,0.25); }
+        .brand-text h1 { font-size:1.4rem; font-weight:700; font-family:'Space Grotesk',monospace; background:linear-gradient(125deg,#13294b,var(--primary)); background-clip:text; -webkit-background-clip:text; color:transparent; }
+        .brand-text p { font-size:0.65rem; font-weight:500; color:var(--text-muted); }
+        .nav-right { display:flex; align-items:center; gap:1rem; }
+        .admin-badge { background:var(--primary-soft); padding:8px 20px; border-radius:40px; font-weight:600; font-size:0.85rem; color:var(--primary); }
+        .logout-btn { background:transparent; border:1.5px solid #ef4444; color:#ef4444; padding:8px 18px; border-radius:40px; font-weight:600; font-size:0.85rem; cursor:pointer; transition:all 0.2s ease; display:flex; align-items:center; gap:8px; font-family:inherit; }
+        .logout-btn:hover { background:#ef4444; color:white; transform:translateY(-2px); box-shadow:0 4px 12px rgba(239,68,68,0.3); }
+        .page-title { margin:2rem 0 1rem; }
+        .page-title h1 { font-size:1.8rem; font-weight:700; }
+        .page-title p { color:var(--text-muted); margin-top:4px; }
+        .dept-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:1.5rem; margin:2rem 0; }
+        .dept-card { background:var(--card-white); border-radius:var(--radius-lg); padding:1.5rem; border:1px solid var(--border-light); cursor:pointer; transition:all 0.25s; text-align:center; box-shadow:var(--shadow-sm); }
+        .dept-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-md); border-color:var(--primary); }
+        .dept-icon { font-size:2.5rem; color:var(--primary); margin-bottom:0.75rem; }
+        .dept-name { font-size:1.2rem; font-weight:700; margin-bottom:0.5rem; }
+        .dept-fullname { font-size:0.8rem; color:var(--text-muted); margin-bottom:0.75rem; }
+        .dept-count { font-size:1.8rem; font-weight:800; color:var(--primary); }
+        .dept-label { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+        .students-page { background:var(--card-white); border-radius:var(--radius-xl); padding:1.8rem; margin:1.5rem 0 2rem; box-shadow:var(--shadow-sm); border:1px solid var(--border-light); }
+        .back-btn { display:inline-flex; align-items:center; gap:8px; background:var(--primary-soft); border:none; padding:10px 20px; border-radius:40px; font-weight:600; color:var(--primary); cursor:pointer; transition:0.2s; margin-bottom:1.5rem; }
+        .back-btn:hover { background:var(--primary); color:white; }
+        .dept-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:2px solid var(--border-light); }
+        .dept-header h2 { font-size:1.5rem; font-weight:700; display:flex; align-items:center; gap:10px; }
+        .stats-badge { background:var(--primary-soft); padding:8px 16px; border-radius:40px; font-size:0.8rem; font-weight:600; }
+        .table-wrapper { overflow-x:auto; border-radius:1rem; -webkit-overflow-scrolling: touch; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:500px; }
+        th, td { padding:14px 12px; text-align:left; border-bottom:1px solid var(--border-light); }
+        th { background:#f8fafc; font-weight:700; color:var(--text-secondary); }
+        .status-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:40px; font-size:0.75rem; font-weight:700; white-space:nowrap; }
+        .status-present { background:#d1fae5; color:var(--success); }
+        .status-absent { background:#fee2e2; color:var(--absent); }
+        .empty-state { text-align:center; padding:3rem; color:var(--text-muted); }
+        footer { text-align:center; padding:2rem; color:var(--text-muted); font-size:0.8rem; border-top:1px solid var(--border-light); margin-top:2rem; }
+        .toast-msg { position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:var(--primary-dark); color:white; padding:12px 24px; border-radius:60px; font-weight:500; z-index:1000; font-size:0.85rem; opacity:0; transition:0.2s; pointer-events:none; white-space:nowrap; box-shadow:0 4px 15px rgba(0,0,0,0.2); }
+        .hidden { display:none; }
+        
+        /* ========== BOTTOM NAVIGATION (Mobile Only) ========== */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-light);
+            display: none;
+            justify-content: space-around;
+            align-items: center;
+            padding: 8px 20px 14px;
+            z-index: 250;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+        }
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: 0.2s;
+            padding: 6px 16px;
+            border-radius: 40px;
+            cursor: pointer;
+        }
+        .bottom-nav-item i { font-size: 1.4rem; margin-bottom: 2px; }
+        .bottom-nav-item.active { color: var(--primary); background: var(--primary-soft); }
+        .bottom-nav-logout { color: #ef4444; }
+        .bottom-nav-logout.active { color: #ef4444; background: #fee2e2; }
+        
+        /* ========== RESPONSIVE: HIDE DESKTOP ELEMENTS ON MOBILE ========== */
+        @media (max-width: 880px) {
+            .container { padding: 0 1rem; }
+            .admin-badge { display: none; }
+            .nav-flex { height: auto; padding: 12px 0; }
+            .brand-text h1 { font-size: 1.2rem; }
+            .logo-icon { width: 36px; height: 36px; }
+            .page-title h1 { font-size: 1.4rem; }
+            .page-title p { font-size: 0.8rem; }
+            .dept-grid { gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); }
+            .dept-card { padding: 1rem; }
+            .dept-icon { font-size: 1.8rem; }
+            .dept-name { font-size: 1rem; }
+            .dept-fullname { font-size: 0.7rem; }
+            .dept-count { font-size: 1.4rem; }
+            .students-page { padding: 1.2rem; }
+            .dept-header { flex-direction: column; align-items: flex-start; }
+            .dept-header h2 { font-size: 1.2rem; }
+            .stats-badge { font-size: 0.7rem; padding: 6px 12px; }
+            th, td { padding: 10px 8px; font-size: 0.8rem; }
+            .status-badge { padding: 3px 10px; font-size: 0.7rem; }
+            .toast-msg { bottom: 80px; white-space: normal; max-width: 85%; text-align: center; }
+            .bottom-nav { display: flex; }
+            body { padding-bottom: 70px; }
+            .back-btn { padding: 8px 16px; font-size: 0.8rem; }
+        }
+        @media (max-width: 580px) {
+            .dept-card { padding: 0.8rem; }
+            .dept-icon { font-size: 1.5rem; }
+            .dept-name { font-size: 0.9rem; }
+            .dept-fullname { font-size: 0.65rem; }
+            .dept-count { font-size: 1.2rem; }
+        }
+        @media (max-width: 480px) {
+            th, td { font-size: 0.7rem; padding: 8px 6px; }
+            .status-badge { padding: 2px 8px; font-size: 0.65rem; }
+            .back-btn { padding: 6px 14px; font-size: 0.75rem; }
+        }
+        button { cursor: pointer; font-family: inherit; }
+    </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+
+<nav class="glass-nav">
+    <div class="container nav-flex">
+        <div class="brand-logo" id="homeLogoBtn">
+            <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+            <div class="brand-text"><h1>FaceTrack</h1><p>admin console</p></div>
+        </div>
+        <div class="nav-right">
+            <div class="admin-badge"><i class="fas fa-user-shield"></i> Admin Portal</div>
+            <button id="logoutBtn" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main>
+    <div class="container">
+        <!-- Courses View -->
+        <div id="deptView">
+            <div class="page-title">
+                <h1>Course Overview</h1>
+                <p>Click on any course card to view student attendance details</p>
+            </div>
+            <div class="dept-grid" id="deptGrid">
+                <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading courses...</div>
+            </div>
+        </div>
+
+        <!-- Students Table View -->
+        <div id="studentsView" class="hidden">
+            <div class="students-page">
+                <button id="backToDeptBtn" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Courses</button>
+                <div class="dept-header" id="deptHeader">
+                    <h2><i class="fas fa-users"></i> <span id="selectedDeptName">Course Name</span></h2>
+                    <div class="stats-badge" id="deptStats">Loading...</div>
+                </div>
+                <div class="table-wrapper" id="tableWrapper">
+                    <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading students...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <p><i class="far fa-copyright"></i> 2026 FaceTrack — AI-Powered Attendance System | Admin Dashboard</p>
+</footer>
+<div id="toastMsg" class="toast-msg"></div>
+
+<!-- BOTTOM NAVIGATION (Mobile) -->
+<div class="bottom-nav" id="bottomNav">
+    <div class="bottom-nav-item active" data-bottom="home">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+    </div>
+    <div class="bottom-nav-item" data-bottom="courses">
+        <i class="fas fa-graduation-cap"></i>
+        <span>Courses</span>
+    </div>
+    <div class="bottom-nav-item" data-bottom="stats">
+        <i class="fas fa-chart-line"></i>
+        <span>Stats</span>
+    </div>
+    <div class="bottom-nav-item bottom-nav-logout" id="mobileLogoutBtn">
+        <i class="fas fa-sign-out-alt"></i>
+        <span>Exit</span>
+    </div>
+</div>
+
+<script>
+    // CSRF helper (though not strictly needed for GET)
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    let currentView = 'dept';
+    const deptView = document.getElementById('deptView');
+    const studentsView = document.getElementById('studentsView');
+    const deptGrid = document.getElementById('deptGrid');
+    const backBtn = document.getElementById('backToDeptBtn');
+    const selectedDeptNameSpan = document.getElementById('selectedDeptName');
+    const deptStatsSpan = document.getElementById('deptStats');
+    const tableWrapper = document.getElementById('tableWrapper');
+    const homeLogoBtn = document.getElementById('homeLogoBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+    const toastMsg = document.getElementById('toastMsg');
+
+    function showToast(message, duration = 2500) {
+        toastMsg.innerHTML = message;
+        toastMsg.style.opacity = '1';
+        setTimeout(() => { toastMsg.style.opacity = '0'; }, duration);
+    }
+
+    // Load courses from API
+    async function loadCourses() {
+        try {
+            const response = await fetch("{% url 'api_courses' %}", {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) throw new Error('Failed to load courses');
+            const data = await response.json();
+            renderCourseCards(data.departments);
+        } catch (error) {
+            console.error(error);
+            deptGrid.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i> Error loading courses. Please refresh.</div>`;
+        }
+    }
+
+    function renderCourseCards(courses) {
+        if (!courses || courses.length === 0) {
+            deptGrid.innerHTML = `<div class="empty-state"><i class="fas fa-building"></i> No courses found.</div>`;
+            return;
+        }
+        deptGrid.innerHTML = '';
+        courses.forEach(course => {
+            const card = document.createElement('div');
+            card.className = 'dept-card';
+            card.innerHTML = `
+                <div class="dept-icon"><i class="${course.icon}"></i></div>
+                <div class="dept-name">${course.short_name}</div>
+                <div class="dept-fullname">${course.full_name}</div>
+                <div class="dept-count">${course.student_count}</div>
+                <div class="dept-label">Total Students</div>
+            `;
+            card.addEventListener('click', () => {
+                showStudentsView(course.short_name);
+            });
+            deptGrid.appendChild(card);
+        });
+    }
+
+    // Load students of a specific course
+    async function showStudentsView(courseName) {
+        currentView = 'students';
+        // Show loading state
+        selectedDeptNameSpan.innerHTML = `<i class="fas fa-spinner fa-pulse"></i> Loading...`;
+        deptStatsSpan.innerHTML = 'Loading stats...';
+        tableWrapper.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading students...</div>`;
+        deptView.classList.add('hidden');
+        studentsView.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        try {
+            const response = await fetch(`{% url 'api_course_students' 'PLACEHOLDER' %}`.replace('PLACEHOLDER', courseName), {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) throw new Error('Failed to load student data');
+            const data = await response.json();
+
+            // Update header
+            selectedDeptNameSpan.innerHTML = `<i class="${data.department.icon}"></i> ${data.department.full_name} (${data.department.short_name})`;
+            deptStatsSpan.innerHTML = `<i class="fas fa-calendar-check"></i> Present: ${data.present_count} | <i class="fas fa-calendar-times"></i> Absent: ${data.absent_count} | 📚 Total: ${data.total_students}`;
+
+            if (!data.students || data.students.length === 0) {
+                tableWrapper.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i><p>No students found in this course</p></div>`;
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr><th>Roll No.</th><th>Student Name</th><th>Today's Status</th></tr>
+                    </thead>
+                    <tbody>
+            `;
+            data.students.forEach(student => {
+                const statusClass = student.status === 'Present' ? 'status-present' : 'status-absent';
+                const statusIcon = student.status === 'Present' ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-times-circle"></i>';
+                tableHTML += `
+                    <tr>
+                        <td><strong>${student.id}</strong></td>
+                        <td>${student.name}</td>
+                        <td><span class="status-badge ${statusClass}">${statusIcon} ${student.status}</span></td>
+                    </tr>
+                `;
+            });
+            tableHTML += `</tbody>
+                </table>`;
+            tableWrapper.innerHTML = tableHTML;
+        } catch (error) {
+            console.error(error);
+            tableWrapper.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i> Error loading student data.</div>`;
+            deptStatsSpan.innerHTML = 'Error loading stats';
+        }
+    }
+
+    function showCoursesView() {
+        currentView = 'dept';
+        deptView.classList.remove('hidden');
+        studentsView.classList.add('hidden');
+        loadCourses(); // refresh to show updated student counts
+    }
+
+    // Logout redirect (uses Django logout URL)
+    function handleLogout() {
+        showToast("👋 Logging out...", 1500);
+        setTimeout(() => {
+            window.location.href = "{% url 'logout' %}";
+        }, 800);
+    }
+
+    // ========== BOTTOM NAVIGATION ACTIVE STATE ==========
+    function setActiveNav(activeId) {
+        document.querySelectorAll('.bottom-nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        const target = document.querySelector(`.bottom-nav-item[data-bottom="${activeId}"]`);
+        if (target) target.classList.add('active');
+    }
+
+    function handleNavClick(screen) {
+        if (screen === 'home') {
+            showCoursesView();
+            setActiveNav('home');
+        } else if (screen === 'courses') {
+            showCoursesView();
+            setActiveNav('courses');
+        } else if (screen === 'stats') {
+            showToast("📊 Overall statistics coming soon", 1500);
+            setActiveNav('stats');
+        }
+    }
+
+    // Event listeners
+    backBtn.addEventListener('click', showCoursesView);
+    homeLogoBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showCoursesView();
+    });
+    logoutBtn.addEventListener('click', handleLogout);
+    if (mobileLogoutBtn) mobileLogoutBtn.addEventListener('click', handleLogout);
+
+    // Bottom nav listeners
+    document.querySelectorAll('.bottom-nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const type = item.getAttribute('data-bottom');
+            if (type && type !== 'logout') {
+                handleNavClick(type);
+            }
+        });
+    });
+
+    // Initial load
+    loadCourses();
+</script>
+</body>
+</html>

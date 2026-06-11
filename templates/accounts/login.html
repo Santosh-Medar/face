@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=yes" />
+  <title>FaceTrack | AI Smart Attendance System</title>
+  <!-- Fonts & same styling as original -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Paste ALL original CSS from the given HTML here (no changes) */
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root { --primary:#2463eb; --primary-dark:#1345b0; --primary-soft:#eef3fe; --primary-glow:rgba(36,99,235,0.25); --accent:#3b82f6; --deep-bg:#fbfdff; --card-white:#ffffff; --text-main:#0a1e3c; --text-secondary:#334155; --text-muted:#5b6e8c; --border-light:#eef2f8; --shadow-sm:0 12px 30px rgba(0,0,0,0.05),0 2px 4px rgba(0,0,0,0.02); --shadow-hover:0 24px 48px -12px rgba(0,0,0,0.12); --radius-xl:2rem; --radius-lg:1.5rem; }
+    body { font-family:'Inter','Space Grotesk',system-ui,sans-serif; background:linear-gradient(135deg,#fafcff 0%,#f3f7fe 100%); color:var(--text-main); overflow-x:hidden; scroll-behavior:smooth; }
+    .bg-mesh { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-2; background:radial-gradient(ellipse at 10% 20%,rgba(36,99,235,0.03) 0%,transparent 55%),radial-gradient(ellipse at 90% 70%,rgba(59,130,246,0.05) 0%,transparent 60%),linear-gradient(115deg,#ffffff 0%,#f2f6fd 100%); }
+    .soft-glow { position:fixed; width:55vw; height:55vw; background:radial-gradient(circle,rgba(36,99,235,0.07) 0%,rgba(36,99,235,0) 75%); border-radius:50%; filter:blur(70px); pointer-events:none; z-index:-1; animation:drift 22s infinite alternate; }
+    @keyframes drift { 0% { transform:translate(0%,0%) scale(1); opacity:0.6; } 100% { transform:translate(4%,5%) scale(1.2); opacity:0.9; } }
+    .glass-nav { backdrop-filter:blur(18px); background:rgba(255,255,255,0.82); border-bottom:1px solid rgba(36,99,235,0.12); position:sticky; top:0; z-index:200; transition:all 0.25s; }
+    .nav-scrolled { background:rgba(255,255,255,0.96); box-shadow:0 4px 20px rgba(0,0,0,0.02); }
+    .container { max-width:1280px; margin:0 auto; padding:0 1.75rem; }
+    .nav-flex { display:flex; align-items:center; justify-content:space-between; height:74px; }
+    .brand-logo { display:flex; align-items:center; gap:12px; text-decoration:none; }
+    .logo-icon { background:linear-gradient(145deg,var(--primary),#4870f5); width:42px; height:42px; border-radius:14px; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 15px -6px var(--primary-glow); }
+    .brand-text h1 { font-size:1.4rem; font-weight:700; font-family:'Space Grotesk',monospace; letter-spacing:-0.3px; background:linear-gradient(125deg,#13294b,var(--primary)); background-clip:text; -webkit-background-clip:text; color:transparent; }
+    .brand-text p { font-size:0.65rem; font-weight:500; color:var(--text-muted); }
+    .nav-links { display:flex; gap:2.5rem; }
+    .nav-links a { text-decoration:none; font-weight:600; font-size:0.9rem; color:var(--text-secondary); transition:0.2s; }
+    .nav-links a:hover { color:var(--primary); }
+    .btn-primary { background:var(--primary); border:none; padding:10px 26px; border-radius:44px; font-weight:700; font-size:0.85rem; color:white; cursor:pointer; box-shadow:0 5px 12px rgba(36,99,235,0.3); transition:all 0.2s ease; font-family:inherit; }
+    .btn-primary:hover { transform:translateY(-2px); background:#1b4ed3; box-shadow:0 12px 22px rgba(36,99,235,0.35); }
+    .hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:3.5rem; padding:5rem 0 4rem; align-items:center; }
+    .badge-pill { display:inline-flex; align-items:center; gap:8px; background:rgba(36,99,235,0.08); backdrop-filter:blur(4px); padding:5px 18px; border-radius:80px; border:1px solid rgba(36,99,235,0.18); margin-bottom:1.6rem; }
+    .pulse-dot { width:8px; height:8px; background:var(--primary); border-radius:50%; animation:soft-pulse 1.5s infinite; }
+    @keyframes soft-pulse { 0% { opacity:0.5; transform:scale(0.8); } 100% { opacity:1; transform:scale(1.2); } }
+    .hero-title { font-size:clamp(2.2rem,5vw,3.6rem); font-weight:800; font-family:'Space Grotesk',sans-serif; line-height:1.2; letter-spacing:-1.5px; margin-bottom:1.2rem; }
+    .gradient-text { background:linear-gradient(125deg,var(--primary),#5e8eff); background-clip:text; -webkit-background-clip:text; color:transparent; }
+    .hero-desc { font-size:1rem; color:var(--text-secondary); line-height:1.65; margin-bottom:2rem; max-width:480px; }
+    .cta-group { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:2.8rem; }
+    .btn-outline { background:transparent; border:1.5px solid rgba(36,99,235,0.35); padding:11px 28px; border-radius:44px; font-weight:700; font-size:0.85rem; transition:all 0.2s; cursor:pointer; }
+    .btn-outline:hover { border-color:var(--primary); background:rgba(36,99,235,0.04); }
+    .stats-row { display:flex; gap:2rem; flex-wrap:wrap; }
+    .stat-val { font-size:1.7rem; font-weight:800; color:#0f2b4f; }
+    .stat-label { font-size:0.7rem; font-weight:600; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; }
+    .stat-divider { width:1px; background:#e2e8f0; margin:0 0.2rem; }
+    .hero-visual { position:relative; }
+    .glass-card { background:rgba(255,255,255,0.96); backdrop-filter:blur(14px); border-radius:2rem; border:1px solid rgba(36,99,235,0.18); padding:1.5rem; box-shadow:var(--shadow-sm); }
+    .scan-area { background:var(--primary-soft); border-radius:1.5rem; padding:1.4rem; text-align:center; margin-bottom:1rem; }
+    .face-circle { width:96px; height:96px; background:white; border-radius:50%; margin:0 auto 1rem; display:flex; align-items:center; justify-content:center; position:relative; box-shadow:0 4px 14px rgba(0,0,0,0.04); }
+    .scan-ring { position:absolute; inset:-5px; border-radius:50%; border:2px dashed var(--primary); opacity:0.7; animation:rotateRing 6s linear infinite; }
+    @keyframes rotateRing { to { transform:rotate(360deg); } }
+    .status-text { font-weight:800; color:var(--primary); margin:10px 0; font-size:0.9rem; }
+    .progress-bar-bg { background:#dce5f5; height:5px; border-radius:20px; overflow:hidden; }
+    .progress-animated { width:65%; height:100%; background:linear-gradient(90deg,var(--primary),#5e8eff); animation:slideProgress 2.2s infinite ease; }
+    @keyframes slideProgress { 0% { width:20%; } 50% { width:85%; } 100% { width:20%; } }
+    .student-row { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border-light); }
+    .student-info { display:flex; align-items:center; gap:12px; }
+    .avatar { width:38px; height:38px; background:linear-gradient(145deg,#c5d9ff,#aec4fa); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; color:#11213e; }
+    .present-badge { background:#e3f7ec; color:#0f6e3f; font-size:0.7rem; font-weight:800; padding:4px 12px; border-radius:60px; }
+    .floating-chip { position:absolute; background:white; border-radius:60px; padding:0.35rem 1rem; box-shadow:0 12px 20px -8px rgba(0,0,0,0.12); font-weight:700; font-size:0.7rem; top:-18px; right:-15px; animation:floatY 4s infinite alternate; display:flex; gap:6px; align-items:center; }
+    @keyframes floatY { 0% { transform:translateY(0px); } 100% { transform:translateY(-8px); } }
+    .section-pad { padding:80px 0; }
+    .section-title { font-size:clamp(1.8rem,4vw,2.6rem); font-weight:800; text-align:center; margin-bottom:0.8rem; font-family:'Space Grotesk',sans-serif; }
+    .features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1.8rem; margin-top:3rem; }
+    .feature-tile { background:white; border-radius:1.5rem; padding:1.8rem; border:1px solid #eef2fc; transition:all 0.25s; }
+    .feature-tile:hover { transform:translateY(-5px); border-color:var(--primary); box-shadow:var(--shadow-hover); }
+    .feature-icon { background:#eef3fe; width:52px; height:52px; border-radius:18px; display:flex; align-items:center; justify-content:center; margin-bottom:1.4rem; }
+    .steps-wrapper { display:flex; flex-wrap:wrap; justify-content:center; gap:2.5rem; margin-top:3rem; }
+    .step-card { text-align:center; max-width:220px; }
+    .step-number { width:58px; height:58px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.6rem; color:white; margin:0 auto 1.2rem; box-shadow:0 12px 18px -8px var(--primary-glow); }
+    .cta-block { background:linear-gradient(125deg,#0c1b33,#102744); border-radius:2rem; padding:3rem 1.5rem; text-align:center; margin:2rem 0; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(8,20,44,0.75); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center; padding:1rem; }
+    .modal-overlay.active { display:flex; }
+    .modal-card { background:white; max-width:440px; width:100%; border-radius:2rem; padding:2rem 1.8rem; animation:modalUp 0.3s ease-out; }
+    @keyframes modalUp { from { opacity:0; transform:scale(0.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    .input-field { margin-bottom:1.2rem; }
+    .input-field label { font-weight:700; font-size:0.75rem; display:block; margin-bottom:0.3rem; }
+    .input-field input { width:100%; padding:14px 18px; border-radius:1rem; border:1.5px solid #e3eaf5; font-family:inherit; }
+    .input-field input:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(36,99,235,0.15); }
+    .error-msg { background:#fff0f0; color:#cd3c3c; border-radius:60px; font-size:0.7rem; padding:8px 12px; text-align:center; margin-top:10px; display:none; }
+    footer { text-align:center; padding:2rem; color:var(--text-muted); font-size:0.8rem; border-top:1px solid rgba(0,0,0,0.05); }
+    @media (max-width:880px) { .hero-grid { grid-template-columns:1fr; gap:2rem; padding:3rem 0 2rem; text-align:center; } .hero-desc { margin-left:auto; margin-right:auto; } .cta-group, .stats-row { justify-content:center; } .nav-links { display:none; } .container { padding:0 1.25rem; } .floating-chip { display:none; } .section-pad { padding:60px 0; } }
+    @media (max-width:600px) { .glass-card { padding:1rem; } .scan-area { padding:1rem; } .hero-title { letter-spacing:-0.02em; } .stats-row { gap:1rem; flex-wrap:wrap; } .stat-divider { display:none; } .stat-val { font-size:1.4rem; } .btn-primary, .btn-outline { padding:9px 18px; font-size:0.8rem; } .features-grid { gap:1rem; } .feature-tile { padding:1.3rem; } }
+    @media (max-width:480px) { .modal-card { padding:1.5rem; } .brand-text h1 { font-size:1.2rem; } .logo-icon { width:36px; height:36px; } }
+    .mobile-menu-btn { background:none; border:none; display:none; flex-direction:column; gap:5px; }
+    @media (max-width:880px) { .mobile-menu-btn { display:flex; } .mobile-menu-btn span { width:24px; height:2px; background:var(--primary); border-radius:4px; } }
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div class="soft-glow" style="top: -15%; left: -8%;"></div>
+<div class="soft-glow" style="bottom: -10%; right: -5%; background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);"></div>
+
+<nav class="glass-nav" id="navbar">
+  <div class="container nav-flex">
+    <a href="#" class="brand-logo">
+      <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <div class="brand-text"><h1>FaceTrack</h1><p>AI attendance</p></div>
+    </a>
+    <button class="btn-primary" id="openModalBtn">Log In →</button>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-title">Attendance that <span class="gradient-text">just happens</span> on entry.</div>
+        <p class="hero-desc">Students walk in — FaceTrack instantly marks presence. Zero friction, 99% precision, real‑time sync.</p>
+        <div class="cta-group"><button class="btn-primary" id="heroCtaBtn">Get started free →</button><button class="btn-outline" id="demoBtn">Watch demo ▸</button></div>
+        <div class="stats-row"><div><div class="stat-val">2.4K+</div><div class="stat-label">Active students</div></div><div class="stat-divider"></div><div><div class="stat-val">98.9%</div><div class="stat-label">Recognition</div></div><div class="stat-divider"></div><div><div class="stat-val">0 sec</div><div class="stat-label">Manual effort</div></div></div>
+      </div>
+      <div class="hero-visual">
+        <div class="glass-card">
+          <div class="scan-area"><div class="face-circle"><div class="scan-ring"></div><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#2463eb" stroke-width="1.8"><circle cx="12" cy="10" r="3"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="2 2"/></svg></div><div class="status-text" id="dynamicStatus">🔍 Detecting faces...</div><div class="progress-bar-bg"><div class="progress-animated"></div></div></div>
+          <div class="floating-chip"><span>⚡</span> Live AI Edge</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="features" class="section-pad">
+    <div class="container"><div class="section-title">Why modern campuses <span class="gradient-text">trust FaceTrack</span></div>
+      <div class="features-grid">
+        <div class="feature-tile"><div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2463eb"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><h3>0.4s recognition</h3><p>Sub‑second matching with anti‑spoofing liveness.</p></div>
+        <div class="feature-tile"><div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2463eb"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Enterprise privacy</h3><p>On‑prem encryption & GDPR compliance.</p></div>
+        <div class="feature-tile"><div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2463eb"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7"/></svg></div><h3>Live analytics</h3><p>Dashboard, reports & alerts in real time.</p></div>
+        <div class="feature-tile"><div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2463eb"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><h3>Zero hardware</h3><p>Works with existing IP cams or webcams.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="section-pad" style="padding-top: 0;">
+    <div class="container"><div class="section-title">How it works — <span class="gradient-text">three steps</span></div>
+      <div class="steps-wrapper"><div class="step-card"><div class="step-number">1</div><h3>Walk through</h3><p>Student enters camera zone</p></div><div class="step-card"><div class="step-number">2</div><h3>AI match</h3><p>Neural engine identifies instantly</p></div><div class="step-card"><div class="step-number">3</div><h3>Attendance logged</h3><p>Syncs with faculty dashboard</p></div></div>
+    </div>
+  </section>
+
+  <div class="container"><div class="cta-block"><h2 style="color: white; font-size: 1.8rem;">Join the future of attendance</h2><p style="color: #b9d0ff; margin-top: 0.6rem;">Seamless, secure, built for institutions.</p><button class="btn-primary" id="ctaFooterBtn" style="background: white; color: var(--primary); margin-top: 1.2rem;">Access dashboard →</button></div></div>
+</main>
+
+<footer><p>© 2026 FaceTrack — AI attendance infrastructure. All rights reserved.</p></footer>
+
+<!-- LOGIN MODAL with Django integration -->
+<div id="loginModal" class="modal-overlay">
+  <div class="modal-card">
+    <div style="text-align: center; margin-bottom: 1rem;">
+      <div class="logo-icon" style="margin: 0 auto 12px; width: 50px; height: 50px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <h2 style="font-weight: 800;">Welcome back</h2>
+      <p style="color: #5b6e8e;">Sign in to dashboard</p>
+    </div>
+
+    <!-- Django form: posts to login_view, includes CSRF -->
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      <div class="input-field">
+        <label>UUCMS ID</label>
+        <input type="text" name="login" id="modalUsername" placeholder="admin@campus.edu" autocomplete="off" required>
+      </div>
+      <div class="input-field">
+        <label>Password</label>
+        <input type="password" name="password" id="modalPassword" placeholder="········" required>
+      </div>
+
+      <!-- Display Django messages (errors) here -->
+      {% if messages %}
+        <div class="error-msg" style="display: block;">
+          {% for message in messages %}
+            {{ message }}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div id="modalError" class="error-msg"></div>
+      {% endif %}
+
+      <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">Log in →</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Ensure modal opens/closes, and if there are Django messages -> keep modal open
+  const modal = document.getElementById('loginModal');
+  const openModalBtns = document.querySelectorAll('#openModalBtn, #heroCtaBtn, #ctaFooterBtn');
+
+  function openModal() { modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+  function closeModal() { modal.classList.remove('active'); document.body.style.overflow = ''; }
+
+  openModalBtns.forEach(btn => btn.addEventListener('click', openModal));
+
+  // Close modal if background clicked
+  modal.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+  // Auto-open modal if there are authentication error messages (from Django)
+  {% if messages %}
+    window.addEventListener('DOMContentLoaded', () => {
+      openModal();
+    });
+  {% endif %}
+
+  // Navbar scroll effect
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 15) navbar.classList.add('nav-scrolled');
+    else navbar.classList.remove('nav-scrolled');
+  });
+
+  // Demo button alert
+  document.getElementById('demoBtn')?.addEventListener('click', () => alert("🎥 Demo: AI captures faces in real-time with 98.9% accuracy. No physical registers needed."));
+
+  // Animated status text (unchanged)
+  const statusSpan = document.getElementById('dynamicStatus');
+  const statusMessages = ["🔍 Scanning faces...", "🎯 Matching database...", "✅ Identity confirmed", "📊 Attendance logged"];
+  let step = 0;
+  setInterval(() => {
+    step = (step+1) % statusMessages.length;
+    if(statusSpan) {
+      statusSpan.style.opacity = '0';
+      setTimeout(()=>{
+        statusSpan.textContent = statusMessages[step];
+        statusSpan.style.opacity='1';
+        if(step===2) statusSpan.style.color='#10b981';
+        else statusSpan.style.color='#2463eb';
+      },120);
+    }
+  }, 2200);
+</script>
+</body>
+</html>

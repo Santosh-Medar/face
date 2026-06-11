@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>GeoFace | FaceTrack Attendance</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --primary: #2463eb;
+      --primary-dark: #1345b0;
+      --primary-soft: #eef3fe;
+      --success: #10b981;
+      --text-muted: #5b6e8c;
+      --shadow-md: 0 20px 35px -12px rgba(0,0,0,0.08);
+      --radius-xl: 2rem;
+    }
+    body {
+      font-family: 'Inter', system-ui;
+      background: linear-gradient(135deg, #fafcff 0%, #f3f7fe 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .bg-mesh { position:fixed; inset:0; z-index:-2; background:radial-gradient(ellipse at 10% 20%, rgba(36,99,235,0.03) 0%, transparent 55%), radial-gradient(ellipse at 90% 70%, rgba(59,130,246,0.05) 0%, transparent 60%), linear-gradient(115deg,#fff 0%,#f2f6fd 100%); }
+    .geoface-card { max-width:550px; width:100%; background:rgba(255,255,255,0.96); backdrop-filter:blur(12px); border-radius:var(--radius-xl); box-shadow:var(--shadow-md); border:1px solid rgba(36,99,235,0.15); overflow:hidden; }
+    .card-header { background:linear-gradient(135deg, var(--primary), #3e50f5); padding:1.2rem 1.5rem; text-align:center; }
+    .card-header h1 { font-family:'Space Grotesk'; font-weight:700; font-size:1.5rem; color:white; }
+    .card-header p { color:rgba(255,255,255,0.85); font-size:0.75rem; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .card-content { padding:1.5rem; }
+    .status-panel { background:var(--primary-soft); border-radius:60px; padding:0.75rem 1.2rem; margin-bottom:1.5rem; text-align:center; font-weight:600; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:10px; }
+    #status { color:var(--primary-dark); line-height:1.4; }
+    #video-container { position:relative; width:100%; margin:0 auto 1.2rem; background:#0a0f1c; border-radius:1.5rem; overflow:hidden; box-shadow:0 20px 35px -12px rgba(0,0,0,0.2); aspect-ratio:16/9; }
+    #video { width:100%; height:100%; object-fit:cover; display:none; }
+    #canvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; display:none; }
+    #controls { display:none; }
+    #backToDashboardBtn { background:var(--success); border:none; padding:12px 24px; border-radius:60px; font-weight:700; font-size:0.9rem; color:white; cursor:pointer; width:100%; justify-content:center; margin-top:1rem; transition:0.2s; }
+    #backToDashboardBtn:hover { background:#0d9b6e; transform:translateY(-1px); }
+    .helper-text { text-align:center; font-size:0.7rem; color:var(--text-muted); margin-top:1rem; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary-soft);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 40px;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+    transition: 0.2s;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+.back-btn:hover {
+    background: var(--primary);
+    color: white;
+}
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div class="geoface-card">
+  <div class="card-header">
+    <h1><i class="fas fa-camera-retro"></i> GeoFace Attendance</h1>
+    <p><i class="fas fa-map-marker-alt"></i> Location‑verified · Auto‑capture</p>
+  </div>
+  <div class="card-content">
+    <div class="status-panel"><i class="fas fa-spinner fa-pulse"></i><span id="status">Checking your location...</span></div>
+    <button id="backToDashboardEarlyBtn" class="back-btn" onclick="goBackToDashboard()">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </button>
+    <div id="video-container">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+    </div>
+    <div id="controls" style="display:none;">
+      <button id="startBtn" disabled>Start</button>
+      <button id="stopBtn" disabled>Stop</button>
+    </div>
+    <div class="helper-text"><i class="fas fa-shield-alt"></i> Camera will start automatically once location is verified</div>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('2d');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  let stream;
+  let socket;
+  let intervalId;
+  let currentLatitude, currentLongitude;
+  let autoStarted = false;
+  // At the top of your script, get the roll number from the logged-in student
+  const studentRollNo = "{{ request.user.studentprofile.roll_no|default:'' }}";
+
+  function setStatus(message, icon = 'info-circle') {
+    const statusSpan = document.getElementById('status');
+    statusSpan.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+  }
+
+  navigator.geolocation.getCurrentPosition(async (position) => {
+    currentLatitude = position.coords.latitude;
+    currentLongitude = position.coords.longitude;
+
+    const response = await fetch("{% url 'verify_location' %}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+      body: JSON.stringify({ latitude: currentLatitude, longitude: currentLongitude })
+    });
+    const data = await response.json();
+
+    if (data.status === 'success' && data.is_inside) {
+      setStatus(data.message, 'check-circle');
+      if (!autoStarted) {
+        autoStarted = true;
+        setStatus('Location verified. Starting camera...', 'camera');
+        setTimeout(() => startCamera(), 300);
+      }
+    } else {
+      setStatus(data.message || 'Outside campus. Access denied.', 'times-circle');
+    }
+  }, (error) => {
+    setStatus('Unable to get location. Please allow permissions.', 'exclamation-triangle');
+    console.error(error);
+  });
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      
+      // Wait for video metadata to get dimensions
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          video.style.display = 'block';
+          canvas.style.display = 'block';
+          setStatus('Camera active – detecting face...', 'eye');
+          resolve();
+        };
+      });
+      
+      await video.play();
+      startWebSocket();
+      intervalId = setInterval(sendFrame, 800);
+    } catch (error) {
+      console.error('Camera error:', error);
+      setStatus('Camera access denied. Please allow permissions.', 'ban');
+    }
+  }
+
+  function stopCamera() {
+    clearInterval(intervalId);
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({action: 'stop'}));
+    video.style.display = 'none';
+    canvas.style.display = 'none';
+  }
+
+  function startWebSocket() {
+    const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const ws_url = `${ws_scheme}://${window.location.host}/ws/face_detection/`;
+    socket = new WebSocket(ws_url);
+
+    socket.onopen = () => {
+        console.log("WebSocket connected");
+        if (studentRollNo) {
+            socket.send(JSON.stringify({
+                action: 'init',
+                roll_no: studentRollNo
+            }));
+        } else {
+            console.error("No roll number found for logged-in student");
+            // Optionally show a message to the user
+            document.getElementById('status').innerHTML = '⚠️ Student profile not found. Please contact admin.';
+        }
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.faces) {
+        drawFaces(data.faces);
+        if (data.faces.length > 0 && !window.attendanceRecorded) {
+          window.attendanceRecorded = true;
+          setStatus('✅ Attendance recorded successfully!', 'check-circle');
+          stopCamera();
+          if (!document.getElementById('backToDashboardBtn')) {
+            const backBtn = document.createElement('button');
+            backBtn.id = 'backToDashboardBtn';
+            backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Dashboard';
+            backBtn.onclick = () => { window.location.href = "{% url 'student_dashboard' %}"; };
+            document.querySelector('.card-content').appendChild(backBtn);
+          }
+        }
+      }
+      if (data.error) {
+        setStatus(data.error, 'exclamation-circle');
+      }
+    };
+
+    socket.onclose = () => console.log("WebSocket disconnected");
+    socket.onerror = (err) => console.error("WebSocket error:", err);
+  }
+
+  function sendFrame() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    if (!video.videoWidth || !video.videoHeight) return;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    socket.send(JSON.stringify({ frame: dataUrl, lat: currentLatitude, lon: currentLongitude }));
+  }
+
+  function drawFaces(faces) {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    faces.forEach(face => {
+      context.beginPath();
+      context.rect(face.x, face.y, face.width, face.height);
+      context.lineWidth = 3;
+      context.strokeStyle = 'green';
+      context.stroke();
+      context.font = "bold 18px 'Inter', 'Space Grotesk', sans-serif";
+      context.fillStyle = 'green';
+      context.fillText(face.name, face.x, face.y + face.height + 22);
+    });
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  function goBackToDashboard() {
+      window.location.href = "{% url 'student_dashboard' %}";
+  }
+  startBtn.addEventListener('click', startCamera);
+  stopBtn.addEventListener('click', stopCamera);
+</script>
+</body>
+</html>
