@@ -35,7 +35,16 @@
     .card-content { padding:1.5rem; }
     .status-panel { background:var(--primary-soft); border-radius:60px; padding:0.75rem 1.2rem; margin-bottom:1.5rem; text-align:center; font-weight:600; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:10px; }
     #status { color:var(--primary-dark); line-height:1.4; }
-    #video-container { position:relative; width:100%; margin:0 auto 1.2rem; background:#0a0f1c; border-radius:1.5rem; overflow:hidden; box-shadow:0 20px 35px -12px rgba(0,0,0,0.2); aspect-ratio:16/9; }
+    #video-container {
+        position: relative;
+        width: 100%;
+        margin: 0 auto 1.2rem;
+        background: #0a0f1c;
+        border-radius: 1.5rem;
+        overflow: hidden;
+        box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+        aspect-ratio: 3 / 4;   /* portrait orientation – taller */
+    }
     #video { width:100%; height:100%; object-fit:cover; display:none; }
     #canvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; display:none; }
     #controls { display:none; }

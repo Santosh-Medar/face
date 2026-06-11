@@ -5,14 +5,14 @@ from .models import StudentProfile
 class DualAuthenticationBackend(ModelBackend):
     """
     Authenticate using:
-    - roll_no (for students) OR
-    - username (for admins / staff)
+    - roll_no (case‑insensitive, for students) OR
+    - username (case‑sensitive, for admins)
     """
 
     def authenticate(self, request, username=None, password=None, **kwargs):
-        # Try to interpret the input as a roll number
+        # Try to interpret the input as a roll number (case‑insensitive)
         try:
-            student_profile = StudentProfile.objects.get(roll_no=username)
+            student_profile = StudentProfile.objects.get(roll_no__iexact=username)
             user = student_profile.user
             if user.check_password(password) and self.user_can_authenticate(user):
                 return user
